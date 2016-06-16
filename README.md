@@ -14,7 +14,7 @@ I was in need for such a thing and that's why I wrote it myself after only findi
 As of right now, this is **Beta**, so treat it as such ;)  
 I added some unittests but there're still many more to go
 
-## ToDo:
+## ToDo
 Things to implement:
 * More unittests
 * Pause/Resume downloads
