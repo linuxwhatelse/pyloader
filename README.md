@@ -4,15 +4,15 @@ pyloader - A simple python downloader
 
 **pyloader** is a simple, easy to use, multi-threaded downloader with queuing support.
 
-It is **NOT** a commandline utility but instead something you can (if you want) implement
+It is **NOT** a command-line utility but instead something you can (if you want) implement
 in one (or more, I don't care :)) of your applications.
 
-I was in need for such a thing and that's why I wrot it myself after only finding command-line utilities.  
+I was in need for such a thing and that's why I wrote it myself after only finding command-line utilities.  
 (I haven't spent a lot of time searching though)
 
 ## Important notice
 As of right now, this is **Beta**, so treat it as such ;)  
-I added some unittests but there'r still many more to go
+I added some unittests but there're still many more to go
 
 ## ToDo:
 Things to implement:
@@ -21,7 +21,7 @@ Things to implement:
 ## Requirements
 What you need:
 * Python 2.7 / Python 3.4 and up
-* The greate python [requests](https://github.com/kennethreitz/requests) module
+* The great python [requests](https://github.com/kennethreitz/requests) module
 
 ## Installation
 Just run:  
@@ -71,7 +71,7 @@ if __name__ == '__main__':
   # Queue an item or...
   dl.queue(item)
   # ...alternatively you can force a download,
-  # ignorieng ``max_concurrent``
+  # ignoring ``max_concurrent``
   dl.download(item)
   
   # If you don't use a callback (to, if necessary, cancel a download),
@@ -101,7 +101,7 @@ if __name__ == '__main__':
   # To stop all downloads and end the downloader just do:
   dl.exit()
   
-  # Important to note here, queued/active items will not be percisted upon exit (or any other point in time)
+  # Important to note here, queued/active items will **NOT** be persisted upon exit (or any other point in time)
   # It's up to you to keep track of the items ;)
 ```
 Well, that should be enough to get you going (I hope)  

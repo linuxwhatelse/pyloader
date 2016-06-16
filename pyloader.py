@@ -38,10 +38,10 @@ class DLable(object):
                 file should be stored.
             file_name (str): Optional file name for the downloaded resource.
                 If `None`, the file name will be set to the one included
-                in the HTTP response header (if availabe), a extracted name
+                in the HTTP response header (if available), a extracted name
                 from the URL (only if a file extension exists) or to the `uid`.
                 Defaults  to `None`.
-            uid (str): Optional identifiere for this downloadable item.
+            uid (str): Optional identifier for this downloadable item.
                 If not given, a ``uuid.uuid4()`` will be generated.
             cookies (dict): Optional cookies to be set for ``requests.get``
                 Defaults to `None`
@@ -247,7 +247,7 @@ class Loader(object):
         raise NotImplementedError('Not implemented yet!')
 
     def download(self, dlable):
-        """Immediatelly starts a new download bypassing
+        """Immediately starts a new download bypassing
         the queue and therefore `max_concurrent`.
 
         Args:
@@ -366,10 +366,10 @@ class Loader(object):
 
     def _get(self, dlable):
         """Fetch a internet resource and propagate the process
-        to the callback (if availabe) set via ``__init__``.
+        to the callback (if available) set via ``__init__``.
 
         Important!
-        This method will NOT spawn a seperate thread!!!
+        This method will NOT spawn a separate thread!!!
 
         Args:
             dlable (DLable): Item to be downloaded.

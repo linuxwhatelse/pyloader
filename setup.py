@@ -28,7 +28,7 @@ setup(
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
     ],
-    keywords='pyloader download multithreaded queue',
+    keywords='pyloader download multi-threaded queue',
     py_modules=[
         'pyloader'
     ],
