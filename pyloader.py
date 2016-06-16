@@ -101,16 +101,34 @@ class Status:
 
 class Progress:
     dlable       = None
-    status       = None
-    mb_total     = 0
-    mb_current   = 0
-    mb_left      = 0
-    percent      = 0
+    """DLable: DLable associated with this progress update"""
+
+    status = None
+    """Status: The status this download is currently in"""
+
+    mb_total = 0
+    """float: Total megabytes for this item"""
+
+    mb_current = 0
+    """float: Currently downloaded megabytes for this item"""
+
+    mb_left = 0
+    """float: Megabytes left to download"""
+
+    percent = 0
+    """float: Download progress in percent"""
+
     time_spent   = 0
+    """int: Seconds spent for this download"""
+
     time_left    = 0
+    """int: Approximate seconds left for this download"""
+
     http_status  = 0
+    """int: HTTP status code received while retrieving the headers"""
 
     error = None
+    """str: Result of traceback.format_exc() in case of an exception"""
 
 
 class Loader(object):
