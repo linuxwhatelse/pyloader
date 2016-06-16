@@ -16,6 +16,7 @@ I added some unittests but there're still many more to go
 
 ## ToDo:
 Things to implement:
+* More unittests
 * Pause/Resume downloads
 
 ## Requirements
