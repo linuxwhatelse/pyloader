@@ -8,13 +8,18 @@ _current = os.path.dirname(os.path.abspath(__file__))
 target   = os.path.join(_current, 'downloads', 'write_access')
 
 resources = {
-    '5MB'  : 'http://download.thinkbroadband.com/5MB.zip',
-    '10MB' : 'http://download.thinkbroadband.com/10MB.zip',
-    '20MB' : 'http://download.thinkbroadband.com/20MB.zip',
+    '5MB'   : 'http://download.thinkbroadband.com/5MB.zip',
+    '10MB'  : 'http://download.thinkbroadband.com/10MB.zip',
+    '20MB'  : 'http://download.thinkbroadband.com/20MB.zip',
+    '50MB'  : 'http://download.thinkbroadband.com/50MB.zip',
+    '100MB' : 'http://download.thinkbroadband.com/100MB.zip',
+    '200MB' : 'http://download.thinkbroadband.com/200MB.zip',
+    '512MB' : 'http://download.thinkbroadband.com/512MB.zip',
+    '1GB'   : 'http://download.thinkbroadband.com/1GB.zip'
 }
 
 
-dummy = pyloader.DLable(resources['20MB'], target)
+dummy = pyloader.DLable(resources['1GB'], target)
 
 
 class TestLoader(unittest.TestCase):
@@ -98,8 +103,8 @@ class TestLoader(unittest.TestCase):
     def test_stop(self):
         dl = pyloader.Loader(daemon=True)
 
-        dummy1 = pyloader.DLable(resources['20MB'], target, 'dummy1.zip')
-        dummy2 = pyloader.DLable(resources['20MB'], target, 'dummy2.zip')
+        dummy1 = pyloader.DLable(resources['1GB'], target, 'dummy1.zip')
+        dummy2 = pyloader.DLable(resources['1GB'], target, 'dummy2.zip')
 
         dl.queue(dummy1)
         dl.queue(dummy2)
