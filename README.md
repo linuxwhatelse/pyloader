@@ -42,6 +42,13 @@ But to get you started, here are some examples :)
 import pyloader
 
 def progress_callback(progress):
+  # !!!IMPORTANT NOTE!!!
+  # The callback will NOT be called within a separate thread
+  # (to ensure consistancy) and WILL block the download
+  # for as long as your callback runs!
+  # Think twice about what you do in here.
+  # Usually you just want to persist/visualize data.
+
   # Use ``help(pyloader.Progress)`` to know what's available
   print(progress.percent)
   
