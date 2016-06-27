@@ -55,7 +55,10 @@ class DLable(object):
         Raises:
             IOError: If target file/folder is not writable
         """
-        if not uid:
+        if uid:
+            self.uid = uid
+
+        else:
             self.uid = str(uuid.uuid4())
 
         self.url = url
