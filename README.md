@@ -27,7 +27,7 @@ What you need:
 ## Installation
 Just run:  
 ```bash
-pip install git+https://github.com/linuxwhatelse/pyloader
+pip install lwe-pyloader
 ```
 
 ## Usage

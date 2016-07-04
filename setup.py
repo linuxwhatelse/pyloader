@@ -9,7 +9,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='pyloader',
+    name='lwe-pyloader',
     version='0.0.1',
     description='A simple, easy to use, multi-threaded downloader with queuing support.',
     long_description=long_description,
