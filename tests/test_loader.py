@@ -69,6 +69,7 @@ class TestLoader(unittest.TestCase):
             self.assertIsNone(progress.error)
 
             if progress.status == pyloader.Status.IN_PROGRESS:
+                print('%s Kb/s' % progress.average_download_speed)
                 self.assertGreater(progress.mb_total, 0)
                 self.assertGreater(progress.mb_current, 0)
                 self.assertGreater(progress.mb_left, 0)
@@ -79,7 +80,7 @@ class TestLoader(unittest.TestCase):
                 self.assertTrue(progress.http_status >= 200 and
                                 progress.http_status <= 299)
 
-                return True
+                #return True
 
             else:
                 return False
@@ -92,7 +93,10 @@ class TestLoader(unittest.TestCase):
 
         dl.start()
 
-        dl.download(dummy)
+        #dl.download(dummy)
+        dummy1 = pyloader.DLable('https://r18---sn-h0j7sn7s.googlevideo.com/videoplayback?requiressl=yes&id=a5131b3b29f42a46&itag=22&source=webdrive&ttl=transient&app=texmex&ip=84.173.233.12&ipbits=32&expire=1467421871&sparams=expire,id,ip,ipbits,itag,mm,mn,ms,mv,nh,pl,requiressl,source,ttl&signature=7C6893DE1D32CF3F9CBDFB43AF64A0836086BD70.5ADB57B2E22D58FA2BC33682A11FB5DD0364418C&key=cms1&pl=19&cms_redirect=yes&mm=31&mn=sn-h0j7sn7s&ms=au&mt=1467411592&mv=m&nh=IgpwcjAxLm11YzA4KgkxMjcuMC4wLjE', target, 'dummy1.zip')
+        dl.download(dummy1)
+
 
         # Wait for all downloads to end
         while dl.is_active:
