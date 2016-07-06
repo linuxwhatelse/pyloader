@@ -1,6 +1,7 @@
 pyloader - A simple python downloader
 =====================================
 [![Build Status](https://travis-ci.org/linuxwhatelse/pyloader.svg?branch=master)](https://travis-ci.org/linuxwhatelse/pyloader)
+[![pypi](https://img.shields.io/pypi/v/lwe-pyloader.svg)](https://pypi.python.org/pypi/lwe-pyloader)
 
 **pyloader** is a simple, easy to use, multi-threaded downloader with queuing support.
 
