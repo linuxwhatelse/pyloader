@@ -18,8 +18,8 @@ resources = {
     '1GB'   : 'http://download.thinkbroadband.com/1GB.zip'
 }
 
-
-dummy = pyloader.DLable(resources['1GB'], target)
+headers = {'User-Agent' : 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.82 Safari/537.36'}
+dummy = pyloader.DLable(resources['1GB'], target, headers=headers)
 
 
 class TestLoader(unittest.TestCase):

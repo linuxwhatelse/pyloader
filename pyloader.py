@@ -26,10 +26,12 @@ class DLable(object):
     cookies = None
     verify_ssl = True
     allow_redirects = True
+    headers = {}
     chunk_size = 1024
 
     def __init__(self, url, target_dir, file_name=None, uid=None, cookies=None,
-                 verify_ssl=True, allow_redirects=True, chunk_size=1024):
+                 verify_ssl=True, allow_redirects=True, headers=None,
+                 chunk_size=1024):
         """Init for DLable (short for Downloadable)
 
         Args:
@@ -49,6 +51,8 @@ class DLable(object):
                 before downloading. Defaults to `True`.
             allow_redirects (bool): Whether or not to follow redirects
                 for the specified ``url``. Defaults to `True`.
+            headers (dict): A dict representing headers to be added to the
+                request. Defaults to None.
             chunk_size (int): The chunk size used for this downloadable.
                 Defaults to `1024`
 
@@ -68,6 +72,9 @@ class DLable(object):
         self.verify_ssl = verify_ssl
         self.allow_redirects = allow_redirects
         self.chunk_size = chunk_size
+
+        if headers is not None:
+            self.headers = headers
 
         # Test if the file (if any) is writable
         if self.file_name:
@@ -431,6 +438,7 @@ class Loader(object):
                 allow_redirects = dlable.allow_redirects,
                 verify = dlable.verify_ssl,
                 cookies = dlable.cookies,
+                headers = dlable.headers,
                 stream = True
             )
 
