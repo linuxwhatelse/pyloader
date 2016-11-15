@@ -65,7 +65,7 @@ if __name__ == '__main__':
   dl = pyloader.Loader(
     max_concurrent = 3,
     progress_cb = progress_callback,
-    update_intervall = 3
+    update_interval = 3
   )
   
   # Create a downloadable item
