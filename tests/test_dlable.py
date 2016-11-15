@@ -1,6 +1,7 @@
 from context import pyloader
 
 import os
+import json
 import unittest
 
 _current = os.path.dirname(os.path.abspath(__file__))
@@ -39,6 +40,38 @@ class TestDLable(unittest.TestCase):
                           pyloader.DLable,
                           'http://url.doesnt.matter',
                           paths['not_writable'])
+
+    def test_serialize_proper(self):
+        item = pyloader.DLable(
+            'http://url.doesnt.matter',
+            paths['writable']
+        )
+
+        try:
+            data = item.to_json()
+            pyloader.DLable.from_json(data)
+
+            self.assertTrue(True)
+
+        except:
+            self.assertTrue(False)
+
+    def test_serialize_missing_required(self):
+        item = pyloader.DLable(
+            'http://url.doesnt.matter',
+            paths['writable']
+        )
+
+        data = item.to_json()
+
+        # Remove a required argument
+        data = json.loads(data)
+        del data['target_dir']
+        data = json.dumps(data)
+
+        self.assertRaises(TypeError,
+                          pyloader.DLable.from_json, data)
+
 
 if __name__ == '__main__':
     unittest.main()

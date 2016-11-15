@@ -3,6 +3,7 @@ import os
 import re
 import time
 import uuid
+import json
 import traceback
 
 import threading
@@ -88,6 +89,14 @@ class DLable(object):
         else:  # Test if the directory is writable
             self._test_target(self.target_dir)
 
+    def to_json(self):
+        return json.dumps(self.__dict__)
+
+    @classmethod
+    def from_json(cls, data):
+        return cls(**json.loads(data))
+
+
     def _test_target(self, path):
         """Helper which goes up in the directory hierarchy until a existing
         folder was found and checks whether or not we have write permissions"""
@@ -110,7 +119,7 @@ class Status:
 
 
 class Progress:
-    dlable       = None
+    dlable = None
     """DLable: DLable associated with this progress update"""
 
     status = None
