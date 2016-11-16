@@ -58,15 +58,21 @@ def progress_callback(progress):
   # If you don't want to cancel,
   return False
   # or return nothing at all
-  
+
 
 if __name__ == '__main__':
   # Create a loader instance
   dl = pyloader.Loader(
     max_concurrent = 3,
     progress_cb = progress_callback,
-    update_interval = 3
+    update_interval = 3,
+    daemon = True
   )
+
+  # Start the loader
+  # Make sure you know how the `daemon` flag
+  # affects the liftime of your program
+  dl.start()
   
   # Create a downloadable item
   # Make sure to read the docstrings via
