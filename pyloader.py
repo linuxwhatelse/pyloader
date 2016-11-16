@@ -20,8 +20,8 @@ import requests
 
 
 class DLable(object):
-    uid    = None
-    url    = None
+    uid = None
+    url = None
     target_dir = None
     file_name  = None
     cookies = None
@@ -29,10 +29,11 @@ class DLable(object):
     allow_redirects = True
     headers = {}
     chunk_size = 1024
+    resolve_url = True
 
     def __init__(self, url, target_dir, file_name=None, uid=None, cookies=None,
                  verify_ssl=True, allow_redirects=True, headers=None,
-                 chunk_size=1024):
+                 chunk_size=1024, resolve_url=True):
         """Init for DLable (short for Downloadable)
 
         Args:
@@ -56,6 +57,8 @@ class DLable(object):
                 request. Defaults to None.
             chunk_size (int): The chunk size used for this downloadable.
                 Defaults to `1024`
+            resolve_url (bool): Whether or not the `url_resolve_cb` callback (supplied
+                to the `Loader` class) should be called or not. Defaults to True.
 
         Raises:
             IOError: If target file/folder is not writable
@@ -73,6 +76,7 @@ class DLable(object):
         self.verify_ssl = verify_ssl
         self.allow_redirects = allow_redirects
         self.chunk_size = chunk_size
+        self.resolve_url = resolve_url
 
         if headers is not None:
             self.headers = headers
@@ -157,6 +161,7 @@ class Loader(object):
 
     _max_concurrent  = None
     _progress_cb     = None
+    _url_resolve_cb  = None
     _update_interval = None
 
     _queue_observer  = None
@@ -171,7 +176,7 @@ class Loader(object):
     _stop = list()
 
     def __init__(self, max_concurrent=3, progress_cb=None, update_interval=7,
-                 daemon=False):
+                 daemon=False, url_resolve_cb=None):
         """Init for Loader
 
         Args:
@@ -188,6 +193,7 @@ class Loader(object):
 
         self._max_concurrent  = max_concurrent
         self._progress_cb     = progress_cb
+        self._url_resolve_cb  = url_resolve_cb
         self._update_interval = update_interval
 
         self._queue_observer  = threading.Thread(target=self._queue_observer)
@@ -441,9 +447,15 @@ class Loader(object):
             os.makedirs(_dir)
 
         try:
+            url = dlable.url
+            if self._url_resolve_cb is not None and dlable.resolve_url:
+                # If we get a invalid url (or nothing), the requests
+                # module will fail with a proper error-message.
+                url = self._url_resolve_cb(url)
+
             # Create requests object as stream
             req = requests.get(
-                url = dlable.url,
+                url = url,
                 allow_redirects = dlable.allow_redirects,
                 verify = dlable.verify_ssl,
                 cookies = dlable.cookies,

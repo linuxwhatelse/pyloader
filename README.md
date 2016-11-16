@@ -59,12 +59,19 @@ def progress_callback(progress):
   return False
   # or return nothing at all
 
+def url_resolver(url):
+  # Here you would resolve the url to something
+  # that can actually be downloaded.
+  # Useful in case resource-urls would expire after
+  # a set amount of time.
+  return url
 
 if __name__ == '__main__':
   # Create a loader instance
   dl = pyloader.Loader(
     max_concurrent = 3,
     progress_cb = progress_callback,
+    url_resolve_cb = url_resolver,
     update_interval = 3,
     daemon = True
   )

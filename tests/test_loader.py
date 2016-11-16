@@ -2,6 +2,7 @@ from context import pyloader
 
 import os
 import time
+import threading
 import unittest
 
 _current = os.path.dirname(os.path.abspath(__file__))
@@ -93,6 +94,47 @@ class TestLoader(unittest.TestCase):
         dl.start()
 
         dl.download(dummy)
+
+        # Wait for all downloads to end
+        while dl.is_active:
+            time.sleep(0.25)
+
+        dl.exit()
+
+    def test_url_resolve_cb(self):
+        _url_resolved = threading.Event()
+
+        def _url_resolver(url):
+            _url_resolved.set()
+
+            return resources['1GB']
+
+        dl = pyloader.Loader(
+            update_interval = 1,
+            daemon          = True,
+            url_resolve_cb  = _url_resolver
+        )
+        dl.start()
+
+        # Use normal url and not call the resolve callback
+        dummy = pyloader.DLable(resources['1GB'], target, resolve_url=False)
+        dl.download(dummy)
+
+        time.sleep(1.0)
+        dl.stop(dummy.uid)
+
+        self.assertTrue(not _url_resolved.is_set())
+        _url_resolved.clear()
+
+        # Use "something-else" as url and let the callback resolve it
+        dummy = pyloader.DLable('prot://some.url?id=123', target, resolve_url=True)
+        dl.download(dummy)
+
+        time.sleep(1.0)
+        dl.stop(dummy.uid)
+
+        self.assertTrue(_url_resolved.is_set())
+        _url_resolved.clear()
 
         # Wait for all downloads to end
         while dl.is_active:
