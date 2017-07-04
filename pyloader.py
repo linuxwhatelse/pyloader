@@ -4,9 +4,12 @@ import re
 import time
 import uuid
 import json
+import logging
 import traceback
 
 import threading
+
+import requests
 
 if sys.version_info >= (3, 0):
     import queue
@@ -16,14 +19,21 @@ else:
     import Queue as queue
     from urllib import unquote
 
-import requests
+
+logger = logging.getLogger('pyloader')
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s '
+                              '[%(threadName)s] %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+logger.setLevel(logging.WARNING)
 
 
 class DLable(object):
     uid = None
     url = None
     target_dir = None
-    file_name  = None
+    file_name = None
     cookies = None
     verify_ssl = True
     allow_redirects = True
@@ -57,8 +67,9 @@ class DLable(object):
                 request. Defaults to None.
             chunk_size (int): The chunk size used for this downloadable.
                 Defaults to `1024`
-            resolve_url (bool): Whether or not the `url_resolve_cb` callback (supplied
-                to the `Loader` class) should be called or not. Defaults to True.
+            resolve_url (bool): Whether or not the `url_resolve_cb` callback
+                (supplied to the `Loader` class) should be called or not.
+                Defaults to True.
 
         Raises:
             IOError: If target file/folder is not writable
@@ -93,13 +104,19 @@ class DLable(object):
         else:  # Test if the directory is writable
             self._test_target(self.target_dir)
 
+    def __str__(self):
+        return self.uid
+
+    @property
+    def target_file(self):
+        return os.path.join(self.target_dir, self.file_name)
+
     def to_json(self):
         return json.dumps(self.__dict__)
 
     @classmethod
     def from_json(cls, data):
         return cls(**json.loads(data))
-
 
     def _test_target(self, path):
         """Helper which goes up in the directory hierarchy until a existing
@@ -119,7 +136,12 @@ class DLable(object):
 
 
 class Status:
-    FAILED, PREPARING, EXISTED, IN_PROGRESS, CANCELED, FINISHED = range(6)
+    FAILED = 'failed'
+    PREPARING = 'preparing'
+    EXISTED = 'file existed'
+    IN_PROGRESS = 'in progress'
+    CANCELED = 'canceled'
+    FINISHED = 'finished'
 
 
 class Progress:
@@ -141,13 +163,13 @@ class Progress:
     percent = 0
     """float: Download progress in percent"""
 
-    time_spent   = 0
+    time_spent = 0
     """int: Seconds spent for this download"""
 
-    time_left    = 0
+    time_left = 0
     """int: Approximate seconds left for this download"""
 
-    http_status  = 0
+    http_status = 0
     """int: HTTP status code received while retrieving the headers"""
 
     error = None
@@ -159,12 +181,12 @@ class Loader(object):
 
     _daemon = False
 
-    _max_concurrent  = None
-    _progress_cb     = None
-    _url_resolve_cb  = None
+    _max_concurrent = None
+    _progress_cb = None
+    _url_resolve_cb = None
     _update_interval = None
 
-    _queue_observer  = None
+    _queue_observer = None
     _active_observer = None
 
     _queue = queue.PriorityQueue()
@@ -185,21 +207,24 @@ class Loader(object):
             progress_cb (func): Function to be called with progress updates
             update_interval (int): interval in sec. to call `progress_cb` with
                 progress updates
-            daemon (bool): Whether or not all spawned threads are daemon threads.
+            daemon (bool): Whether or not all spawned threads are daemon
+                threads.
                 The entire Python program exits when no alive non-daemon threads
                 are left.
         """
         self._daemon = daemon
 
-        self._max_concurrent  = max_concurrent
-        self._progress_cb     = progress_cb
-        self._url_resolve_cb  = url_resolve_cb
+        self._max_concurrent = max_concurrent
+        self._progress_cb = progress_cb
+        self._url_resolve_cb = url_resolve_cb
         self._update_interval = update_interval
 
-        self._queue_observer  = threading.Thread(target=self._queue_observer)
+        self._queue_observer = threading.Thread(target=self._queue_observer,
+                                                name='QueueObsThread')
         self._queue_observer.daemon = self._daemon
 
-        self._active_observer = threading.Thread(target=self._active_observer)
+        self._active_observer = threading.Thread(target=self._active_observer,
+                                                 name='ActiveObsThread')
         self._active_observer.daemon = self._daemon
 
     @property
@@ -227,8 +252,10 @@ class Loader(object):
     @property
     def is_active(self):
         """True if items are queued/being processed, False otherwise"""
-        return not ((self._queue.empty() and self._queue.unfinished_tasks == 0) and
-                    (self._active.empty() and self._active.unfinished_tasks == 0))
+        queued = self._queue.empty() and self._queue.unfinished_tasks == 0
+        active = self._active.empty() and self._active.unfinished_tasks == 0
+
+        return not (queued and active)
 
     @property
     def is_alive(self):
@@ -238,24 +265,27 @@ class Loader(object):
 
     def start(self):
         """Start this loader instance"""
+        logger.debug('Starting new pyloader instance')
         self._active_observer.start()
         self._queue_observer.start()
 
     def clear_queued(self):
         """Clears all queued items"""
+        logger.debug('Clearing queued items')
         while not self._queue.empty():
             self._queue.get_nowait()
             self._queue.task_done()
 
     def clear_active(self):
-        """Clears all active items.
-        However, it will NOT stop active downloads"""
+        """Clears all active items. It will NOT stop active downloads"""
+        logger.debug('Clearing active items')
         while not self._active.empty():
             self._active.get_nowait()
             self._active.task_done()
 
     def exit(self):
         """Gracefully stop all downloads and exit"""
+        logger.debug('Exit hast been requested')
         self._exit = True
 
         self.clear_queued()
@@ -279,9 +309,12 @@ class Loader(object):
         """
         if type(dlable) == list:
             for item in dlable:
+                logger.debug('Queuing {} with prio {}'.format(item[1],
+                                                              item[0]))
                 self._queue.put(item)
 
         else:
+            logger.debug('Queuing {} with prio {}'.format(dlable, -prio))
             self._queue.put((-prio, dlable))
 
         self._queue_event.set()
@@ -298,9 +331,11 @@ class Loader(object):
         """
         if type(dlable) == list:
             for item in dlable:
+                logger.debug('Downloading {}'.format(item))
                 self._active.put(item)
 
         else:
+            logger.debug('Downloading {}'.format(dlable))
             self._active.put(dlable)
 
         self._active_event.set()
@@ -313,12 +348,14 @@ class Loader(object):
             uid (str): uid of a DLable which should be stopped
         """
         if not dlable and not uid:
-            raise ValueError('At least one of `uid` or `dlable` must be provided!')
+            raise ValueError('At least one of `uid` or `dlable` '
+                             'must be provided!')
 
         if not uid:
             uid = dlable.uid
 
         if uid not in self._stop:
+            logger.debug('Requesting stop for {}'.format(uid))
             self._stop.append(uid)
 
     def pause(self, uid=None, dlable=None):
@@ -329,7 +366,8 @@ class Loader(object):
             uid (str): uid of a DLable which should be paused
         """
         if not dlable and not uid:
-            raise ValueError('At least one of `uid` or `dlable` must be provided!')
+            raise ValueError('At least one of `uid` or `dlable` must be '
+                             'provided!')
 
         raise NotImplementedError('Not implemented yet!')
 
@@ -341,18 +379,20 @@ class Loader(object):
             uid (str): uid of a DLable which should be resumed
         """
         if not dlable and not uid:
-            raise ValueError('At least one of `uid` or `dlable` must be provided!')
+            raise ValueError('At least one of `uid` or `dlable` must be '
+                             'provided!')
 
         raise NotImplementedError('Not implemented yet!')
 
     def _queue_observer(self):
         """Main loop which activates new downloads
         if conditions like max_concurrent match."""
-
+        logger.debug('Starting queue observer')
         while True:
             self._queue_event.wait()
 
             if self._exit:
+                logger.debug('Exiting queue observer')
                 return
 
             # Move queued items to active state
@@ -367,6 +407,7 @@ class Loader(object):
                 except queue.Empty:
                     break
 
+                logger.debug('Moving {} from queue to active'.format(item))
                 self._active.put(item)
                 self._active_event.set()
 
@@ -376,10 +417,12 @@ class Loader(object):
 
     def _active_observer(self):
         """Main loop which starts new downloads."""
+        logger.debug('Starting active download observer')
         while True:
             self._active_event.wait()
 
             if self._exit:
+                logger.debug('Exiting active observer')
                 return
 
             while not self._active.empty():
@@ -390,22 +433,12 @@ class Loader(object):
                     break
 
                 # Start download in new Thread
+                logger.debug('Starting new download {}'.format(item))
                 _t = threading.Thread(target=self._get, args=[item])
                 _t.daemon = self._daemon
                 _t.start()
 
             self._active_event.clear()
-
-    def _notify(self, progress):
-        if self._progress_cb:
-            return self._progress_cb(progress)
-
-        elif progress.error:
-            print('Error while processing download with uid "%s"' %
-                  progress.dlable.uid)
-            print(progress.error)
-
-        return False
 
     def _get(self, dlable):
         """Fetch a internet resource and propagate the process
@@ -422,24 +455,42 @@ class Loader(object):
             if dlable.uid in self._stop:
                 self._stop.remove(dlable.uid)
 
+            logger.debug('Download {} finished'.format(dlable))
             self._active.task_done()
+
+            logger.debug('{} active and {} queued items remaining'.format(
+                self.active, self.queued))
 
             # Notify the queue that this download finished
             # so new ones can be triggered (if available)
             self._queue_event.set()
 
+        def _notify(progress):
+            if (progress.status in [Status.FAILED, Status.EXISTED]
+                    or progress.error):
+                logger.error('Error while processing download {}'.format(
+                    progress.dlable.uid))
+
+                error = progress.error if progress.error else ''
+                logger.error('  Reason: {} {}'.format(progress.status, error))
+
+            if self._progress_cb:
+                return self._progress_cb(progress)
+
+            return False
+
         # Variables we need later on
         progress = Progress()
         progress.dlable = dlable
         progress.status = Status.PREPARING
-        if self._notify(progress):
+        if _notify(progress):
             return
 
-        started_at   = time.time()
+        started_at = time.time()
         last_updated = time.time() - self._update_interval
 
         # Get directory and filename
-        _dir  = dlable.target_dir
+        _dir = dlable.target_dir
         _file = dlable.file_name
 
         # Create parent directories if they don't exist
@@ -455,18 +506,18 @@ class Loader(object):
 
             # Create requests object as stream
             req = requests.get(
-                url = url,
-                allow_redirects = dlable.allow_redirects,
-                verify = dlable.verify_ssl,
-                cookies = dlable.cookies,
-                headers = dlable.headers,
-                stream = True
+                url=url,
+                allow_redirects=dlable.allow_redirects,
+                verify=dlable.verify_ssl,
+                cookies=dlable.cookies,
+                headers=dlable.headers,
+                stream=True
             )
 
         except:
             progress.status = Status.FAILED
-            progress.error  = traceback.format_exc()
-            self._notify(progress)
+            progress.error = traceback.format_exc()
+            _notify(progress)
 
             _finish()
             return
@@ -475,9 +526,10 @@ class Loader(object):
 
         # If the http status code is anything other than in the range of
         # 200 - 299, we skip
-        if req.status_code < 200 or req.status_code > 299:
+        if req.status_code != requests.codes.ok:
             progress.status = Status.FAILED
-            self._notify(progress)
+            progress.error = '{} {}'.format(req.status_code, )
+            _notify(progress)
 
             _finish()
             return
@@ -486,7 +538,7 @@ class Loader(object):
         if not _file:
             dispos = req.headers.get('content-disposition')
             if dispos:
-                _file  = re.findall('filename=(.+)', dispos)
+                _file = re.findall('filename=(.+)', dispos)
 
         # Try to get a filename from the url itself
         # We only use this approach if a file-extension is given to make
@@ -507,14 +559,14 @@ class Loader(object):
         # a progress
         content_length = req.headers.get('content-length')
         if content_length:
-            content_length    = int(content_length)
+            content_length = int(content_length)
             progress.mb_total = content_length / 1024 / 1024
 
         # Check if the same file already exists and skip if it does
         if (os.path.exists(target) and
                 os.path.getsize(target) == content_length):
             progress.status = Status.EXISTED
-            self._notify(progress)
+            _notify(progress)
 
             _finish()
             return
@@ -542,7 +594,8 @@ class Loader(object):
                         # Calculate new progress
                         if progress.mb_total > 0:
                             # float cast is necessary for python2.7
-                            progress.mb_current += (float(len(chunk)) / 1024) / 1024
+                            progress.mb_current += ((float(len(chunk)) / 1024)
+                                                    / 1024)
                             progress.percent = (progress.mb_current * 100 /
                                                 progress.mb_total)
                             progress.mb_left = (progress.mb_total -
@@ -556,7 +609,7 @@ class Loader(object):
                         if time.time() > last_updated + self._update_interval:
                             last_updated = time.time()
 
-                            cancel = self._notify(progress)
+                            cancel = _notify(progress)
 
                     # Finally write our chunk. Yay! :)
                     f.write(chunk)
@@ -568,23 +621,23 @@ class Loader(object):
                 os.remove(target)
 
                 progress.status = Status.FAILED
-                progress.error  = traceback.format_exc()
-                self._notify(progress)
+                progress.error = traceback.format_exc()
+                _notify(progress)
 
         else:
             if self._exit or cancel:
-                self._notify(progress)
+                _notify(progress)
 
                 if os.path.exists(target):
                     os.remove(target)
 
             else:
                 # Call the callback a last time with finalized values
-                progress.status     = Status.FINISHED
-                progress.percent    = 100
-                progress.mb_left    = 0
+                progress.status = Status.FINISHED
+                progress.percent = 100
+                progress.mb_left = 0
                 progress.mb_current = progress.mb_total
 
-                self._notify(progress)
+                _notify(progress)
 
         _finish()
