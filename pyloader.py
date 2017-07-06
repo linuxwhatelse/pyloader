@@ -203,8 +203,8 @@ class Loader(object):
                 progress updates
             daemon (bool): Whether or not all spawned threads are daemon
                 threads.
-                The entire Python program exits when no alive non-daemon threads
-                are left.
+                The entire Python program exits when no alive non-daemon
+                threads are left.
         """
         self._daemon = daemon
 
@@ -259,27 +259,27 @@ class Loader(object):
 
     def start(self):
         """Start this loader instance"""
-        logger.debug('Starting new pyloader instance')
+        logger.info('Starting new pyloader instance')
         self._active_observer.start()
         self._queue_observer.start()
 
     def clear_queued(self):
         """Clears all queued items"""
-        logger.debug('Clearing queued items')
+        logger.info('Clearing queued items')
         while not self._queue.empty():
             self._queue.get_nowait()
             self._queue.task_done()
 
     def clear_active(self):
         """Clears all active items. It will NOT stop active downloads"""
-        logger.debug('Clearing active items')
+        logger.info('Clearing active items')
         while not self._active.empty():
             self._active.get_nowait()
             self._active.task_done()
 
     def exit(self):
         """Gracefully stop all downloads and exit"""
-        logger.debug('Exit hast been requested')
+        logger.info('Exit hast been requested')
         self._exit = True
 
         self.clear_queued()
@@ -303,12 +303,12 @@ class Loader(object):
         """
         if type(dlable) == list:
             for item in dlable:
-                logger.debug('Queuing {} with prio {}'.format(item[1],
-                                                              item[0]))
+                logger.info('Queuing {} with prio {}'.format(item[1],
+                                                             item[0]))
                 self._queue.put(item)
 
         else:
-            logger.debug('Queuing {} with prio {}'.format(dlable, -prio))
+            logger.info('Queuing {} with prio {}'.format(dlable, -prio))
             self._queue.put((-prio, dlable))
 
         self._queue_event.set()
@@ -325,11 +325,11 @@ class Loader(object):
         """
         if type(dlable) == list:
             for item in dlable:
-                logger.debug('Downloading {}'.format(item))
+                logger.info('Downloading {}'.format(item))
                 self._active.put(item)
 
         else:
-            logger.debug('Downloading {}'.format(dlable))
+            logger.info('Downloading {}'.format(dlable))
             self._active.put(dlable)
 
         self._active_event.set()
@@ -349,7 +349,7 @@ class Loader(object):
             uid = dlable.uid
 
         if uid not in self._stop:
-            logger.debug('Requesting stop for {}'.format(uid))
+            logger.info('Requesting stop for {}'.format(uid))
             self._stop.append(uid)
 
     def pause(self, uid=None, dlable=None):
@@ -381,12 +381,12 @@ class Loader(object):
     def _queue_observer(self):
         """Main loop which activates new downloads
         if conditions like max_concurrent match."""
-        logger.debug('Starting queue observer')
+        logger.info('Starting queue observer')
         while True:
             self._queue_event.wait()
 
             if self._exit:
-                logger.debug('Exiting queue observer')
+                logger.info('Exiting queue observer')
                 return
 
             # Move queued items to active state
@@ -401,7 +401,7 @@ class Loader(object):
                 except queue.Empty:
                     break
 
-                logger.debug('Moving {} from queue to active'.format(item))
+                logger.info('Moving {} from queue to active'.format(item))
                 self._active.put(item)
                 self._active_event.set()
 
@@ -411,12 +411,12 @@ class Loader(object):
 
     def _active_observer(self):
         """Main loop which starts new downloads."""
-        logger.debug('Starting active download observer')
+        logger.info('Starting active download observer')
         while True:
             self._active_event.wait()
 
             if self._exit:
-                logger.debug('Exiting active observer')
+                logger.info('Exiting active observer')
                 return
 
             while not self._active.empty():
@@ -427,7 +427,7 @@ class Loader(object):
                     break
 
                 # Start download in new Thread
-                logger.debug('Starting new download {}'.format(item))
+                logger.info('Starting new download {}'.format(item))
                 _t = threading.Thread(target=self._get, args=[item])
                 _t.daemon = self._daemon
                 _t.start()
@@ -449,10 +449,10 @@ class Loader(object):
             if dlable.uid in self._stop:
                 self._stop.remove(dlable.uid)
 
-            logger.debug('Download {} finished'.format(dlable))
+            logger.info('Download {} finished'.format(dlable))
             self._active.task_done()
 
-            logger.debug('{} active and {} queued items remaining'.format(
+            logger.info('{} active and {} queued items remaining'.format(
                 self.active, self.queued))
 
             # Notify the queue that this download finished
