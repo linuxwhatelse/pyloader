@@ -2,9 +2,11 @@ from setuptools import setup
 
 setup(
     name='lwe-pyloader',
-    version='0.2.3',
-    description='A simple, easy to use, multi-threaded downloader with queuing support.',
-    long_description='For an overview and some examples, head over to `Github <https://github.com/linuxwhatelse/pyloader>`_',
+    version='0.2.4',
+    description='A simple, easy to use, multi-threaded downloader with '
+                'queuing support.',
+    long_description='For an overview and some examples, head over to '
+                     '`Github <https://github.com/linuxwhatelse/pyloader>`_',
     url='https://github.com/linuxwhatelse/pyloader',
     author='linuxwhatelse',
     author_email='info@linuxwhatelse.com',
