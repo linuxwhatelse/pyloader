@@ -19,15 +19,7 @@ else:
     import Queue as queue
     from urllib import unquote
 
-
-handler = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s '
-                              '[%(threadName)s] %(message)s')
-handler.setFormatter(formatter)
-
 logger = logging.getLogger(__name__)
-logger.propagate = False
-logger.addHandler(handler)
 logger.setLevel(logging.WARNING)
 
 
