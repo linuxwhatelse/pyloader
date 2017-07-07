@@ -513,7 +513,7 @@ class Loader(object):
                 stream=True
             )
 
-        except:
+        except Exception:
             progress.status = Status.FAILED
             progress.error = traceback.format_exc()
             _notify(progress)
@@ -613,7 +613,7 @@ class Loader(object):
                     # Finally write our chunk. Yay! :)
                     f.write(chunk)
 
-        except:
+        except Exception:
             # If any form of error occurs, we catch it and report it
             # to the callback (if available)
             if os.path.exists(target):
