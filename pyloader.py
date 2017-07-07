@@ -432,6 +432,8 @@ class Loader(object):
                 _t.daemon = self._daemon
                 _t.start()
 
+                time.sleep(0.25)
+
             self._active_event.clear()
 
     def _get(self, dlable):
