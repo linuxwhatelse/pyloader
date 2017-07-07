@@ -489,7 +489,10 @@ class Loader(object):
 
         # Create parent directories if they don't exist
         if not os.path.exists(_dir):
-            os.makedirs(_dir)
+            try:
+                os.makedirs(_dir)
+            except FileExistsError:
+                logger.warning('Directory already exists: {}'.format(_dir))
 
         try:
             url = dlable.url
