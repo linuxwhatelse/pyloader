@@ -527,7 +527,7 @@ class Loader(object):
         # 200 - 299, we skip
         if req.status_code != requests.codes.ok:
             progress.status = Status.FAILED
-            progress.error = '{} {}'.format(req.status_code, )
+            progress.error = str(req.status_code)
             _notify(progress)
 
             _finish()
