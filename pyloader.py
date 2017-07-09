@@ -480,6 +480,7 @@ class Loader(object):
         progress.dlable = dlable
         progress.status = Status.PREPARING
         if _notify(progress):
+            _finish()
             return
 
         started_at = time.time()
