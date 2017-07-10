@@ -7,9 +7,10 @@ import unittest
 _current = os.path.dirname(os.path.abspath(__file__))
 
 paths = {
-    'writable'     : os.path.join(_current, 'downloads', 'write_access'),
-    'not_writable' : os.path.join(_current, 'downloads', 'no_write_access')
+    'writable': os.path.join(_current, 'downloads', 'write_access'),
+    'not_writable': os.path.join(_current, 'downloads', 'no_write_access')
 }
+
 
 class TestDLable(unittest.TestCase):
 
@@ -53,7 +54,7 @@ class TestDLable(unittest.TestCase):
 
             self.assertTrue(True)
 
-        except:
+        except Exception:
             self.assertTrue(False)
 
     def test_serialize_missing_required(self):

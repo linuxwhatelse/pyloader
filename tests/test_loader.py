@@ -6,20 +6,24 @@ import threading
 import unittest
 
 _current = os.path.dirname(os.path.abspath(__file__))
-target   = os.path.join(_current, 'downloads', 'write_access')
+target = os.path.join(_current, 'downloads', 'write_access')
 
 resources = {
-    '5MB'   : 'http://download.thinkbroadband.com/5MB.zip',
-    '10MB'  : 'http://download.thinkbroadband.com/10MB.zip',
-    '20MB'  : 'http://download.thinkbroadband.com/20MB.zip',
-    '50MB'  : 'http://download.thinkbroadband.com/50MB.zip',
-    '100MB' : 'http://download.thinkbroadband.com/100MB.zip',
-    '200MB' : 'http://download.thinkbroadband.com/200MB.zip',
-    '512MB' : 'http://download.thinkbroadband.com/512MB.zip',
-    '1GB'   : 'http://download.thinkbroadband.com/1GB.zip'
+    '5MB': 'http://download.thinkbroadband.com/5MB.zip',
+    '10MB': 'http://download.thinkbroadband.com/10MB.zip',
+    '20MB': 'http://download.thinkbroadband.com/20MB.zip',
+    '50MB': 'http://download.thinkbroadband.com/50MB.zip',
+    '100MB': 'http://download.thinkbroadband.com/100MB.zip',
+    '200MB': 'http://download.thinkbroadband.com/200MB.zip',
+    '512MB': 'http://download.thinkbroadband.com/512MB.zip',
+    '1GB': 'http://download.thinkbroadband.com/1GB.zip'
 }
 
-headers = {'User-Agent' : 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.82 Safari/537.36'}
+headers = {
+    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) '
+                  'AppleWebKit/537.36 (KHTML, like Gecko) '
+                  'Chrome/52.0.2743.82 Safari/537.36'
+}
 dummy = pyloader.DLable(resources['1GB'], target, headers=headers)
 
 
@@ -107,11 +111,8 @@ class TestLoader(unittest.TestCase):
             else:
                 return False
 
-        dl = pyloader.Loader(
-            progress_cb     = _callback,
-            update_interval = 1,
-            daemon          = True
-        )
+        dl = pyloader.Loader(progress_cb=_callback, update_interval=1,
+                             daemon=True)
 
         dl.start()
 
@@ -127,11 +128,8 @@ class TestLoader(unittest.TestCase):
         def _callback(progress):
             raise Exception('Expected exception')
 
-        dl = pyloader.Loader(
-            progress_cb     = _callback,
-            update_interval = 1,
-            daemon          = True
-        )
+        dl = pyloader.Loader(progress_cb=_callback, update_interval=1,
+                             daemon=True)
 
         dl.start()
 
@@ -151,11 +149,8 @@ class TestLoader(unittest.TestCase):
 
             return resources['1GB']
 
-        dl = pyloader.Loader(
-            update_interval = 1,
-            daemon          = True,
-            url_resolve_cb  = _url_resolver
-        )
+        dl = pyloader.Loader(update_interval=1, daemon=True,
+                             url_resolve_cb=_url_resolver)
         dl.start()
 
         # Use normal url and not call the resolve callback
@@ -169,7 +164,8 @@ class TestLoader(unittest.TestCase):
         _url_resolved.clear()
 
         # Use "something-else" as url and let the callback resolve it
-        dummy = pyloader.DLable('prot://some.url?id=123', target, resolve_url=True)
+        dummy = pyloader.DLable('prot://some.url?id=123', target,
+                                resolve_url=True)
         dl.download(dummy)
 
         time.sleep(1.0)
@@ -215,6 +211,7 @@ class TestLoader(unittest.TestCase):
         self.assertFalse(dl.is_active)
 
         dl.exit()
+
 
 if __name__ == '__main__':
     unittest.main()
