@@ -19,6 +19,9 @@ else:
     import Queue as queue
     from urllib import unquote
 
+_lock = threading.RLock()
+_instances = dict()
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
@@ -171,6 +174,9 @@ class Progress:
 
 
 class Loader(object):
+    _lock = threading.RLock()
+    _name = None
+
     _exit = False
 
     _daemon = False
@@ -221,6 +227,36 @@ class Loader(object):
                                                  name='ActiveObsThread')
         self._active_observer.daemon = self._daemon
 
+    @staticmethod
+    def get_loader(name=__name__):
+        """Return a Loader instance with the given name. If the name already
+           exist return its instance.
+
+           Does not work if a Loader was created via its constructor.
+
+           Using `Loader.get()` is the prefered way.
+
+        Args:
+            name (str): Name of the instance
+        """
+        rv = None
+        if not isinstance(name, str):
+            raise TypeError('A pyloader name must be a string')
+
+        _lock.acquire()
+
+        if name in _instances:
+            rv = _instances[name]
+
+        else:
+            rv = Loader()
+            _instances[name] = rv
+
+        rv._name = name
+
+        _lock.release()
+        return rv
+
     @property
     def max_concurrent(self):
         """Returns the maximum concurrent downloads"""
@@ -260,26 +296,36 @@ class Loader(object):
     def start(self):
         """Start this loader instance"""
         logger.info('Starting new pyloader instance')
+        self._lock.acquire()
+
         self._active_observer.start()
         self._queue_observer.start()
+
+        self._lock.release()
 
     def clear_queued(self):
         """Clears all queued items"""
         logger.info('Clearing queued items')
+        self._lock.acquire()
         while not self._queue.empty():
             self._queue.get_nowait()
             self._queue.task_done()
+        self._lock.release()
 
     def clear_active(self):
         """Clears all active items. It will NOT stop active downloads"""
         logger.info('Clearing active items')
+        self._lock.acquire()
         while not self._active.empty():
             self._active.get_nowait()
             self._active.task_done()
+        self._lock.release()
 
     def exit(self):
         """Gracefully stop all downloads and exit"""
         logger.info('Exit hast been requested')
+        self._lock.acquire()
+
         self._exit = True
 
         self.clear_queued()
@@ -287,6 +333,8 @@ class Loader(object):
 
         self._queue_event.set()
         self._active_event.set()
+
+        self._lock.release()
 
     def kill(self):
         # Not sure if we actually want that
@@ -301,6 +349,8 @@ class Loader(object):
                 prio will be downloaded first.
                 Will be ignored in case ``dlable`` is a list
         """
+        self._lock.acquire()
+
         if type(dlable) == list:
             for item in dlable:
                 logger.info('Queuing {} with prio {}'.format(item[1],
@@ -313,6 +363,8 @@ class Loader(object):
 
         self._queue_event.set()
 
+        self._lock.release()
+
     def unqueue(self, dlable):
         raise NotImplementedError('Not implemented yet!')
 
@@ -323,6 +375,8 @@ class Loader(object):
         Args:
             dlable (DLable | List[DLable]): Item(s) to be downloaded.
         """
+        self._lock.acquire()
+
         if type(dlable) == list:
             for item in dlable:
                 logger.info('Downloading {}'.format(item))
@@ -333,6 +387,8 @@ class Loader(object):
             self._active.put(dlable)
 
         self._active_event.set()
+
+        self._lock.release()
 
     def stop(self, uid=None, dlable=None):
         """Stops an active download
@@ -345,12 +401,16 @@ class Loader(object):
             raise ValueError('At least one of `uid` or `dlable` '
                              'must be provided!')
 
+        self._lock.acquire()
+
         if not uid:
             uid = dlable.uid
 
         if uid not in self._stop:
             logger.info('Requesting stop for {}'.format(uid))
             self._stop.append(uid)
+
+        self._lock.release()
 
     def pause(self, uid=None, dlable=None):
         """Pauses an active download

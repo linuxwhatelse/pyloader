@@ -25,6 +25,28 @@ dummy = pyloader.DLable(resources['1GB'], target, headers=headers)
 
 class TestLoader(unittest.TestCase):
 
+    def test_instances(self):
+        inst1 = pyloader.Loader.get_loader('inst1')
+        inst2 = pyloader.Loader.get_loader('inst2')
+        self.assertNotEqual(inst1, inst2)
+
+        inst1_2 = pyloader.Loader.get_loader('inst1')
+        inst2_2 = pyloader.Loader.get_loader('inst2')
+        self.assertNotEqual(inst1_2, inst2_2)
+
+        self.assertEqual(inst1, inst1_2)
+        self.assertEqual(inst2, inst2_2)
+
+        def _async():
+            inst1_3 = pyloader.Loader.get_loader('inst1')
+            inst2_3 = pyloader.Loader.get_loader('inst2')
+            self.assertNotEqual(inst1_3, inst2_3)
+
+            self.assertEqual(inst1, inst1_2, inst1_3)
+            self.assertEqual(inst2, inst2_2, inst2_3)
+
+        threading.Thread(target=_async).start()
+
     def test_properties(self):
         dl = pyloader.Loader(daemon=True)
 
