@@ -471,7 +471,13 @@ class Loader(object):
                 logger.error('  Reason: {} {}'.format(progress.status, error))
 
             if self._progress_cb:
-                return self._progress_cb(progress)
+                try:
+                    return self._progress_cb(progress)
+                except Exception:
+                    logger.error('Failed executing progress callback for '
+                                 '{}'.format(progress.dlable.uid),
+                                 exc_info=True)
+                    return True
 
             return False
 

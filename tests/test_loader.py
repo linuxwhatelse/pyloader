@@ -101,6 +101,26 @@ class TestLoader(unittest.TestCase):
 
         dl.exit()
 
+    def test_callback_exception(self):
+        def _callback(progress):
+            raise Exception('Expected exception')
+
+        dl = pyloader.Loader(
+            progress_cb     = _callback,
+            update_interval = 1,
+            daemon          = True
+        )
+
+        dl.start()
+
+        dl.download(dummy)
+
+        # Wait for all downloads to end
+        while dl.is_active:
+            time.sleep(0.25)
+
+        dl.exit()
+
     def test_url_resolve_cb(self):
         _url_resolved = threading.Event()
 
