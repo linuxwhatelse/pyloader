@@ -402,14 +402,6 @@ class Loader(object):
                 self._queue.get_nowait()
                 self._queue.task_done()
 
-    def clear_active(self):
-        """Clears all active items. It will NOT stop active downloads"""
-        logger.info('Clearing active items')
-        with self._lock:
-            while not self._active.empty():
-                self._active.get_nowait()
-                self._active.task_done()
-
     def exit(self):
         """Gracefully stop all downloads and exit"""
         logger.info('Exit hast been requested')
@@ -417,7 +409,6 @@ class Loader(object):
             self._exit = True
 
             self.clear_queued()
-            self.clear_active()
 
             self._queue_event.set()
             self._active_event.set()
