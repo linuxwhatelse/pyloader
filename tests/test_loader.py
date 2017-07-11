@@ -105,7 +105,7 @@ class TestLoader(unittest.TestCase):
             return False
 
         def _url_resolve_cb(item):
-            return item.url
+            return item
 
         dl = pyloader.Loader(daemon=True)
 
@@ -223,8 +223,8 @@ class TestLoader(unittest.TestCase):
 
         def _url_resolver(item):
             _url_resolved.set()
-
-            return resources['1GB']
+            item.url = resources['1GB']
+            return item
 
         dl = pyloader.Loader(update_interval=1, daemon=True,
                              url_resolve_cb=_url_resolver)

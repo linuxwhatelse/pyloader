@@ -640,15 +640,14 @@ class Loader(object):
                 logger.warning('Directory already exists: {}'.format(_dir))
 
         try:
-            url = dlable.url
             if self._url_resolve_cb is not None and dlable.resolve_url:
                 # If we get a invalid url (or nothing), the requests
                 # module will fail with a proper error-message.
-                url = self._url_resolve_cb(dlable)
+                dlable = self.url_resolve_cb(dlable)
 
             # Create requests object as stream
             req = requests.get(
-                url=url,
+                url=dlable.url,
                 allow_redirects=dlable.allow_redirects,
                 verify=dlable.verify_ssl,
                 cookies=dlable.cookies,
