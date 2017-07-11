@@ -183,9 +183,9 @@ class Loader(object):
     _daemon = False
 
     _max_concurrent = None
+    _update_interval = None
     _progress_cb = None
     _url_resolve_cb = None
-    _update_interval = None
 
     _queue_observer_thread = None
     _active_observer_thread = None
@@ -288,8 +288,8 @@ class Loader(object):
 
         self.max_concurrent = max_concurrent
         self.update_interval = update_interval
-        self._progress_cb = progress_cb
-        self._url_resolve_cb = url_resolve_cb
+        self.progress_cb = progress_cb
+        self.url_resolve_cb = url_resolve_cb
 
         self._daemon = daemon
 
@@ -325,6 +325,40 @@ class Loader(object):
         """Set the update interval in sec. defining how often the progress
            callback should be called."""
         self._update_interval = interval
+
+    @property
+    def progress_cb(self):
+        """Returns the currently configured progress callback"""
+        return self._progress_cb
+
+    @progress_cb.setter
+    def progress_cb(self, callback):
+        """Sets the progress callback.
+
+           Raises:
+                RuntimeError: If items are downloading/queued
+        """
+        if self.is_active:
+            raise RuntimeError('Cannot change callback while loader is active')
+
+        self._progress_cb = callback
+
+    @property
+    def url_resolve_cb(self):
+        """Returns the currently configured url resolver callback"""
+        return self._url_resolve_cb
+
+    @url_resolve_cb.setter
+    def url_resolve_cb(self, callback):
+        """Sets the url resolver callback.
+
+           Raises:
+                RuntimeError: If items are downloading/queued
+        """
+        if self.is_active:
+            raise RuntimeError('Cannot change callback while loader is active')
+
+        self._url_resolve_cb = callback
 
     @property
     def queued(self):

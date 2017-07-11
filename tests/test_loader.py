@@ -100,6 +100,34 @@ class TestLoader(unittest.TestCase):
         self.assertNotEqual(_progress_cb1, inst1._progress_cb)
         self.assertNotEqual(_url_resolve_cb1, inst1._url_resolve_cb)
 
+    def test_callback_overwrite(self):
+        def _progress_cb(progress):
+            return False
+
+        def _url_resolve_cb(item):
+            return item.url
+
+        dl = pyloader.Loader(daemon=True)
+
+        dummy1 = pyloader.DLable(resources['5MB'], target, 'dummy1.zip')
+        dl.queue(dummy1)
+
+        dl.start()
+
+        with self.assertRaises(RuntimeError):
+            dl.progress_cb = _progress_cb
+
+        with self.assertRaises(RuntimeError):
+            dl.url_resolve_cb = _url_resolve_cb
+
+        while dl.is_active:
+            time.sleep(0.25)
+
+        dl.progress_cb = _progress_cb
+        dl.url_resolve_cb = _url_resolve_cb
+
+        dl.exit()
+
     def test_properties(self):
         dl = pyloader.Loader(daemon=True)
 
@@ -193,7 +221,7 @@ class TestLoader(unittest.TestCase):
     def test_url_resolve_cb(self):
         _url_resolved = threading.Event()
 
-        def _url_resolver(url):
+        def _url_resolver(item):
             _url_resolved.set()
 
             return resources['1GB']
