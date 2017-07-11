@@ -126,6 +126,9 @@ class DLable(object):
             self._test_target(os.path.abspath(os.path.join(path, os.pardir)))
 
     def __eq__(self, other):
+        if not isinstance(other, DLable):
+            return False
+
         return self.uid == other.uid
 
     def __lt__(self, other):
