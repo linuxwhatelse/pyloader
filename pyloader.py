@@ -245,18 +245,16 @@ class Loader(object):
         if not isinstance(name, str):
             raise TypeError('A pyloader name must be a string')
 
-        _lock.acquire()
+        with _lock:
+            if name in _instances:
+                rv = _instances[name]
 
-        if name in _instances:
-            rv = _instances[name]
+            else:
+                rv = Loader()
+                _instances[name] = rv
 
-        else:
-            rv = Loader()
-            _instances[name] = rv
+            rv._name = name
 
-        rv._name = name
-
-        _lock.release()
         return rv
 
     def configure(self, max_concurrent=3, progress_cb=None, update_interval=7,
@@ -282,26 +280,23 @@ class Loader(object):
         if self._configured and self.is_alive:
             raise RuntimeError('Cannot reconfigure already started instance.')
 
-        self._lock.acquire()
+        with self._lock:
+            self._configured = True
 
-        self._configured = True
+            self.max_concurrent = max_concurrent
+            self.update_interval = update_interval
+            self.progress_cb = progress_cb
+            self.url_resolve_cb = url_resolve_cb
 
-        self.max_concurrent = max_concurrent
-        self.update_interval = update_interval
-        self.progress_cb = progress_cb
-        self.url_resolve_cb = url_resolve_cb
+            self._daemon = daemon
 
-        self._daemon = daemon
+            self._queue_observer_thread = threading.Thread(
+                target=self._queue_observer, name='QueueObsThread')
+            self._queue_observer_thread.daemon = self._daemon
 
-        self._queue_observer_thread = threading.Thread(
-            target=self._queue_observer, name='QueueObsThread')
-        self._queue_observer_thread.daemon = self._daemon
-
-        self._active_observer_thread = threading.Thread(
-            target=self._active_observer, name='ActiveObsThread')
-        self._active_observer_thread.daemon = self._daemon
-
-        self._lock.release()
+            self._active_observer_thread = threading.Thread(
+                target=self._active_observer, name='ActiveObsThread')
+            self._active_observer_thread.daemon = self._daemon
 
     @property
     def max_concurrent(self):
@@ -394,45 +389,37 @@ class Loader(object):
     def start(self):
         """Start this loader instance"""
         logger.info('Starting new pyloader instance')
-        self._lock.acquire()
-
-        self._active_observer_thread.start()
-        self._queue_observer_thread.start()
-
-        self._lock.release()
+        with self._lock:
+            self._active_observer_thread.start()
+            self._queue_observer_thread.start()
 
     def clear_queued(self):
         """Clears all queued items"""
         logger.info('Clearing queued items')
-        self._lock.acquire()
-        while not self._queue.empty():
-            self._queue.get_nowait()
-            self._queue.task_done()
-        self._lock.release()
+        with self._lock:
+            while not self._queue.empty():
+                self._queue.get_nowait()
+                self._queue.task_done()
 
     def clear_active(self):
         """Clears all active items. It will NOT stop active downloads"""
         logger.info('Clearing active items')
-        self._lock.acquire()
-        while not self._active.empty():
-            self._active.get_nowait()
-            self._active.task_done()
-        self._lock.release()
+        with self._lock:
+            while not self._active.empty():
+                self._active.get_nowait()
+                self._active.task_done()
 
     def exit(self):
         """Gracefully stop all downloads and exit"""
         logger.info('Exit hast been requested')
-        self._lock.acquire()
+        with self._lock:
+            self._exit = True
 
-        self._exit = True
+            self.clear_queued()
+            self.clear_active()
 
-        self.clear_queued()
-        self.clear_active()
-
-        self._queue_event.set()
-        self._active_event.set()
-
-        self._lock.release()
+            self._queue_event.set()
+            self._active_event.set()
 
     def kill(self):
         # Not sure if we actually want that
@@ -447,21 +434,18 @@ class Loader(object):
                 prio will be downloaded first.
                 Will be ignored in case ``dlable`` is a list
         """
-        self._lock.acquire()
+        with self._lock:
+            if type(dlable) == list:
+                for item in dlable:
+                    logger.info('Queuing {} with prio {}'.format(item[1],
+                                                                 item[0]))
+                    self._queue.put(item)
 
-        if type(dlable) == list:
-            for item in dlable:
-                logger.info('Queuing {} with prio {}'.format(item[1],
-                                                             item[0]))
-                self._queue.put(item)
+            else:
+                logger.info('Queuing {} with prio {}'.format(dlable, -prio))
+                self._queue.put((-prio, dlable))
 
-        else:
-            logger.info('Queuing {} with prio {}'.format(dlable, -prio))
-            self._queue.put((-prio, dlable))
-
-        self._queue_event.set()
-
-        self._lock.release()
+            self._queue_event.set()
 
     def unqueue(self, dlable):
         raise NotImplementedError('Not implemented yet!')
@@ -473,20 +457,17 @@ class Loader(object):
         Args:
             dlable (DLable | List[DLable]): Item(s) to be downloaded.
         """
-        self._lock.acquire()
+        with self._lock:
+            if type(dlable) == list:
+                for item in dlable:
+                    logger.info('Downloading {}'.format(item))
+                    self._active.put(item)
 
-        if type(dlable) == list:
-            for item in dlable:
-                logger.info('Downloading {}'.format(item))
-                self._active.put(item)
+            else:
+                logger.info('Downloading {}'.format(dlable))
+                self._active.put(dlable)
 
-        else:
-            logger.info('Downloading {}'.format(dlable))
-            self._active.put(dlable)
-
-        self._active_event.set()
-
-        self._lock.release()
+            self._active_event.set()
 
     def stop(self, uid=None, dlable=None):
         """Stops an active download
@@ -499,16 +480,13 @@ class Loader(object):
             raise ValueError('At least one of `uid` or `dlable` '
                              'must be provided!')
 
-        self._lock.acquire()
+        with self._lock:
+            if not uid:
+                uid = dlable.uid
 
-        if not uid:
-            uid = dlable.uid
-
-        if uid not in self._stop:
-            logger.info('Requesting stop for {}'.format(uid))
-            self._stop.append(uid)
-
-        self._lock.release()
+            if uid not in self._stop:
+                logger.info('Requesting stop for {}'.format(uid))
+                self._stop.append(uid)
 
     def pause(self, uid=None, dlable=None):
         """Pauses an active download
