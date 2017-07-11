@@ -289,6 +289,21 @@ class TestLoader(unittest.TestCase):
 
         dl.exit()
 
+    def test_clear_queued(self):
+        dl = pyloader.Loader(daemon=True)
+
+        dummy1 = pyloader.DLable(resources['1GB'], target, 'dummy1.zip')
+        dummy2 = pyloader.DLable(resources['1GB'], target, 'dummy2.zip')
+
+        dl.queue(dummy1)
+        dl.queue(dummy2)
+
+        self.assertEqual(2, dl.queued)
+
+        dl.clear_queued()
+
+        self.assertEqual(0, dl.queued)
+
 
 if __name__ == '__main__':
     unittest.main()
