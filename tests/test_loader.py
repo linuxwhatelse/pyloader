@@ -120,7 +120,7 @@ class TestLoader(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             dl.url_resolve_cb = _url_resolve_cb
 
-        while dl.is_active:
+        while dl.is_active():
             time.sleep(0.25)
 
         dl.progress_cb = _progress_cb
@@ -131,8 +131,8 @@ class TestLoader(unittest.TestCase):
     def test_properties(self):
         dl = pyloader.Loader(daemon=True)
 
-        self.assertFalse(dl.is_active)
-        self.assertFalse(dl.is_alive)
+        self.assertFalse(dl.is_active())
+        self.assertFalse(dl.is_alive())
 
         self.assertIs(dl.queued, 0)
         self.assertIs(dl.active, 0)
@@ -142,8 +142,8 @@ class TestLoader(unittest.TestCase):
         self.assertIs(dl.queued, 1)
         self.assertIs(dl.active, 0)
 
-        self.assertTrue(dl.is_active)
-        self.assertFalse(dl.is_alive)
+        self.assertTrue(dl.is_active())
+        self.assertFalse(dl.is_alive())
 
         dl.start()
 
@@ -153,8 +153,8 @@ class TestLoader(unittest.TestCase):
         self.assertIs(dl.queued, 0)
         self.assertIs(dl.active, 1)
 
-        self.assertTrue(dl.is_active)
-        self.assertTrue(dl.is_alive)
+        self.assertTrue(dl.is_active())
+        self.assertTrue(dl.is_alive())
 
         dl.exit()
 
@@ -164,8 +164,8 @@ class TestLoader(unittest.TestCase):
         self.assertIs(dl.queued, 0)
         self.assertIs(dl.active, 0)
 
-        self.assertFalse(dl.is_active)
-        self.assertFalse(dl.is_alive)
+        self.assertFalse(dl.is_active())
+        self.assertFalse(dl.is_alive())
 
     def test_callback_cancel(self):
         def _callback(progress):
@@ -196,7 +196,7 @@ class TestLoader(unittest.TestCase):
         dl.download(dummy)
 
         # Wait for all downloads to end
-        while dl.is_active:
+        while dl.is_active():
             time.sleep(0.25)
 
         dl.exit()
@@ -213,7 +213,7 @@ class TestLoader(unittest.TestCase):
         dl.download(dummy)
 
         # Wait for all downloads to end
-        while dl.is_active:
+        while dl.is_active():
             time.sleep(0.25)
 
         dl.exit()
@@ -252,7 +252,7 @@ class TestLoader(unittest.TestCase):
         _url_resolved.clear()
 
         # Wait for all downloads to end
-        while dl.is_active:
+        while dl.is_active():
             time.sleep(0.25)
 
         dl.exit()
@@ -266,7 +266,7 @@ class TestLoader(unittest.TestCase):
         dl.queue(dummy1)
         dl.queue(dummy2)
 
-        self.assertTrue(dl.is_active)
+        self.assertTrue(dl.is_active())
         self.assertIs(dl.active, 0)
 
         dl.start()
@@ -285,7 +285,7 @@ class TestLoader(unittest.TestCase):
         time.sleep(1.0)
         self.assertIs(dl.active, 0)
 
-        self.assertFalse(dl.is_active)
+        self.assertFalse(dl.is_active())
 
         dl.exit()
 

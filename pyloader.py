@@ -278,7 +278,7 @@ class Loader(object):
         Raises:
             RuntimeError: If this instance was already configured and started.
         """
-        if self._configured and self.is_alive:
+        if self._configured and self.is_alive():
             raise RuntimeError('Cannot reconfigure already started instance.')
 
         with self._lock:
@@ -334,7 +334,7 @@ class Loader(object):
            Raises:
                 RuntimeError: If items are downloading/queued
         """
-        if self.is_active:
+        if self.is_active():
             raise RuntimeError('Cannot change callback while loader is active')
 
         self._progress_cb = callback
@@ -351,7 +351,7 @@ class Loader(object):
            Raises:
                 RuntimeError: If items are downloading/queued
         """
-        if self.is_active:
+        if self.is_active():
             raise RuntimeError('Cannot change callback while loader is active')
 
         self._url_resolve_cb = callback
@@ -366,7 +366,6 @@ class Loader(object):
         """Returns the amount of unprocessed (downloading) active items"""
         return self._active.unfinished_tasks
 
-    @property
     def is_active(self):
         """True if items are queued/being processed, False otherwise"""
         queued = self._queue.empty() and self._queue.unfinished_tasks == 0
@@ -374,7 +373,6 @@ class Loader(object):
 
         return not (queued and active)
 
-    @property
     def is_alive(self):
         """True if BOTH observer threads are alive, False otherwise"""
         if (self._queue_observer_thread is None
