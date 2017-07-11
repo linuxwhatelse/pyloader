@@ -581,40 +581,42 @@ class Loader(object):
         Args:
             dlable (DLable): Item to be downloaded.
         """
-        def _finish(dlable):
+        def _finish(dlable, progress):
             # Just in case :)
             if dlable.uid in self._stop:
                 self._stop.remove(dlable.uid)
 
-            logger.info('Download {} finished'.format(dlable))
+            logger.info('Download {} ended with status '
+                        '"{}"'.format(dlable, progress.status))
+
             self._active.task_done()
+            self._queue_event.set()
 
             logger.info('{} active and {} queued items remaining'.format(
                 self.active, self.queued))
 
-            # Notify the queue that this download finished
-            # so new ones can be triggered (if available)
-            self._queue_event.set()
-
-        def _notify(progress):
+        def _propagate(progress):
             if (progress.status in [Status.FAILED, Status.EXISTED]
                     or progress.error):
+                error = progress.error if progress.error else ''
                 logger.error('Error while processing download {}'.format(
                     progress.dlable.uid))
-
-                error = progress.error if progress.error else ''
                 logger.error('  Reason: {} {}'.format(progress.status, error))
+
+                return False
 
             if self._progress_cb:
                 try:
                     return self._progress_cb(progress)
-                except Exception:
-                    logger.error('Failed executing progress callback for '
-                                 '{}'.format(progress.dlable.uid),
-                                 exc_info=True)
+                except Exception as e:
+                    logger.error('Progress callback failed for {}'.format(
+                        progress.dlable.uid))
+                    logger.error('  Reason: {}'.format(str(e)))
+
                     return True
 
-            return False
+        logger.info('{} active and {} queued items remaining'.format(
+            self.active, self.queued))
 
         # Prepwork only with active lock
         with self._dl_lock:
@@ -622,8 +624,8 @@ class Loader(object):
             progress = Progress()
             progress.dlable = dlable
             progress.status = Status.PREPARING
-            if _notify(progress):
-                _finish(dlable)
+            if _propagate(progress):
+                _finish(dlable, progress)
                 return
 
             started_at = time.time()
@@ -659,9 +661,9 @@ class Loader(object):
             except Exception:
                 progress.status = Status.FAILED
                 progress.error = traceback.format_exc()
-                _notify(progress)
+                _propagate(progress)
 
-                _finish(dlable)
+                _finish(dlable, progress)
                 return
 
             progress.http_status = req.status_code
@@ -671,9 +673,9 @@ class Loader(object):
             if req.status_code != requests.codes.ok:
                 progress.status = Status.FAILED
                 progress.error = str(req.status_code)
-                _notify(progress)
+                _propagate(progress)
 
-                _finish(dlable)
+                _finish(dlable, progress)
                 return
 
             # Try to extract filename from headers if none was specified
@@ -708,9 +710,9 @@ class Loader(object):
             if (os.path.exists(target) and
                     os.path.getsize(target) == content_length):
                 progress.status = Status.EXISTED
-                _notify(progress)
+                _propagate(progress)
 
-                _finish(dlable)
+                _finish(dlable, progress)
                 return
 
         try:
@@ -750,7 +752,7 @@ class Loader(object):
                         if time.time() > last_updated + self._update_interval:
                             last_updated = time.time()
 
-                            cancel = _notify(progress)
+                            cancel = _propagate(progress)
 
                     # Finally write our chunk. Yay! :)
                     f.write(chunk)
@@ -763,11 +765,11 @@ class Loader(object):
 
                 progress.status = Status.FAILED
                 progress.error = traceback.format_exc()
-                _notify(progress)
+                _propagate(progress)
 
         else:
             if self._exit or cancel:
-                _notify(progress)
+                _propagate(progress)
 
                 if os.path.exists(target):
                     os.remove(target)
@@ -779,6 +781,6 @@ class Loader(object):
                 progress.mb_left = 0
                 progress.mb_current = progress.mb_total
 
-                _notify(progress)
+                _propagate(progress)
 
-        _finish(dlable)
+        _finish(dlable, progress)
