@@ -175,6 +175,7 @@ class Progress:
 
 class Loader(object):
     _lock = threading.RLock()
+    _dl_lock = threading.RLock()
     _name = None
     _configured = False
 
@@ -568,8 +569,6 @@ class Loader(object):
                 _t.daemon = self._daemon
                 _t.start()
 
-                time.sleep(0.25)
-
             self._active_event.clear()
 
     def _get(self, dlable):
@@ -582,7 +581,7 @@ class Loader(object):
         Args:
             dlable (DLable): Item to be downloaded.
         """
-        def _finish():
+        def _finish(dlable):
             # Just in case :)
             if dlable.uid in self._stop:
                 self._stop.remove(dlable.uid)
@@ -617,104 +616,105 @@ class Loader(object):
 
             return False
 
-        # Variables we need later on
-        progress = Progress()
-        progress.dlable = dlable
-        progress.status = Status.PREPARING
-        if _notify(progress):
-            _finish()
-            return
+        # Prepwork only with active lock
+        with self._dl_lock:
+            # Variables we need later on
+            progress = Progress()
+            progress.dlable = dlable
+            progress.status = Status.PREPARING
+            if _notify(progress):
+                _finish(dlable)
+                return
 
-        started_at = time.time()
-        last_updated = time.time() - self._update_interval
+            started_at = time.time()
+            last_updated = time.time() - self._update_interval
 
-        # Get directory and filename
-        _dir = dlable.target_dir
-        _file = dlable.file_name
+            # Get directory and filename
+            _dir = dlable.target_dir
+            _file = dlable.file_name
 
-        # Create parent directories if they don't exist
-        if not os.path.exists(_dir):
+            # Create parent directories if they don't exist
+            if not os.path.exists(_dir):
+                try:
+                    os.makedirs(_dir)
+                except FileExistsError:
+                    logger.warning('Directory already exists: {}'.format(_dir))
+
             try:
-                os.makedirs(_dir)
-            except FileExistsError:
-                logger.warning('Directory already exists: {}'.format(_dir))
+                if self._url_resolve_cb is not None and dlable.resolve_url:
+                    # If we get a invalid url (or nothing), the requests
+                    # module will fail with a proper error-message.
+                    dlable = self.url_resolve_cb(dlable)
 
-        try:
-            if self._url_resolve_cb is not None and dlable.resolve_url:
-                # If we get a invalid url (or nothing), the requests
-                # module will fail with a proper error-message.
-                dlable = self.url_resolve_cb(dlable)
+                # Create requests object as stream
+                req = requests.get(
+                    url=dlable.url,
+                    allow_redirects=dlable.allow_redirects,
+                    verify=dlable.verify_ssl,
+                    cookies=dlable.cookies,
+                    headers=dlable.headers,
+                    stream=True
+                )
 
-            # Create requests object as stream
-            req = requests.get(
-                url=dlable.url,
-                allow_redirects=dlable.allow_redirects,
-                verify=dlable.verify_ssl,
-                cookies=dlable.cookies,
-                headers=dlable.headers,
-                stream=True
-            )
+            except Exception:
+                progress.status = Status.FAILED
+                progress.error = traceback.format_exc()
+                _notify(progress)
 
-        except Exception:
-            progress.status = Status.FAILED
-            progress.error = traceback.format_exc()
-            _notify(progress)
+                _finish(dlable)
+                return
 
-            _finish()
-            return
+            progress.http_status = req.status_code
 
-        progress.http_status = req.status_code
+            # If the http status code is anything other than in the range of
+            # 200 - 299, we skip
+            if req.status_code != requests.codes.ok:
+                progress.status = Status.FAILED
+                progress.error = str(req.status_code)
+                _notify(progress)
 
-        # If the http status code is anything other than in the range of
-        # 200 - 299, we skip
-        if req.status_code != requests.codes.ok:
-            progress.status = Status.FAILED
-            progress.error = str(req.status_code)
-            _notify(progress)
+                _finish(dlable)
+                return
 
-            _finish()
-            return
+            # Try to extract filename from headers if none was specified
+            if not _file:
+                dispos = req.headers.get('content-disposition')
+                if dispos:
+                    _file = re.findall('filename=(.+)', dispos)
 
-        # Try to extract filename from headers if none was specified
-        if not _file:
-            dispos = req.headers.get('content-disposition')
-            if dispos:
-                _file = re.findall('filename=(.+)', dispos)
+            # Try to get a filename from the url itself
+            # We only use this approach if a file-extension is given to make
+            # sure it is actually the filename
+            if not _file:
+                _tmp_name = unquote(os.path.basename(req.url))
+                if os.path.splitext(_tmp_name)[1]:
+                    _file = _tmp_name
 
-        # Try to get a filename from the url itself
-        # We only use this approach if a file-extension is given to make
-        # sure it is actually the filename
-        if not _file:
-            _tmp_name = unquote(os.path.basename(req.url))
-            if os.path.splitext(_tmp_name)[1]:
-                _file = _tmp_name
+            # Set filename to the downloadables uid as last resort
+            if not _file:
+                _file = dlable.uid
 
-        # Set filename to the downloadables uid as last resort
-        if not _file:
-            _file = dlable.uid
+            # Full path to the file we'll be writing to
+            target = os.path.join(_dir, _file)
 
-        # Full path to the file we'll be writing to
-        target = os.path.join(_dir, _file)
+            # Try and get the files content-length to calculate
+            # a progress
+            content_length = req.headers.get('content-length')
+            if content_length:
+                content_length = int(content_length)
+                progress.mb_total = content_length / 1024 / 1024
 
-        # Try and get the files content-length to calculate
-        # a progress
-        content_length = req.headers.get('content-length')
-        if content_length:
-            content_length = int(content_length)
-            progress.mb_total = content_length / 1024 / 1024
+            # Check if the same file already exists and skip if it does
+            if (os.path.exists(target) and
+                    os.path.getsize(target) == content_length):
+                progress.status = Status.EXISTED
+                _notify(progress)
 
-        # Check if the same file already exists and skip if it does
-        if (os.path.exists(target) and
-                os.path.getsize(target) == content_length):
-            progress.status = Status.EXISTED
-            _notify(progress)
-
-            _finish()
-            return
+                _finish(dlable)
+                return
 
         try:
             cancel = False
-
             progress.status = Status.IN_PROGRESS
 
             with open(target, 'wb+') as f:
@@ -781,4 +781,4 @@ class Loader(object):
 
                 _notify(progress)
 
-        _finish()
+        _finish(dlable)
