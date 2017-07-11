@@ -36,7 +36,7 @@ class DLable(object):
     allow_redirects = True
     headers = {}
     chunk_size = 1024
-    resolve_url = True
+    resolve_url = False
 
     def __init__(self, url, target_dir, file_name=None, uid=None, cookies=None,
                  verify_ssl=True, allow_redirects=True, headers=None,
@@ -66,7 +66,7 @@ class DLable(object):
                 Defaults to `1024`
             resolve_url (bool): Whether or not the `url_resolve_cb` callback
                 (supplied to the `Loader` class) should be called or not.
-                Defaults to True.
+                Defaults to False.
 
         Raises:
             IOError: If target file/folder is not writable
@@ -176,6 +176,7 @@ class Progress:
 class Loader(object):
     _lock = threading.RLock()
     _name = None
+    _configured = False
 
     _exit = False
 
@@ -186,8 +187,8 @@ class Loader(object):
     _url_resolve_cb = None
     _update_interval = None
 
-    _queue_observer = None
-    _active_observer = None
+    _queue_observer_thread = None
+    _active_observer_thread = None
 
     _queue = queue.PriorityQueue()
     _queue_event = threading.Event()
@@ -199,7 +200,15 @@ class Loader(object):
 
     def __init__(self, max_concurrent=3, progress_cb=None, update_interval=7,
                  daemon=False, url_resolve_cb=None):
-        """Init for Loader
+        """Init for Loader.
+
+        Example:
+            loader = Loader.get_loader('awesome_loader')
+            loader.configure(...)
+
+            # Whenever you need this loader instances
+            loader = Loader.get_loader('awesome_loader')
+            loader.queue(...)
 
         Args:
             max_concurrent (int): Maximum amount of concurrent downloads.
@@ -211,21 +220,12 @@ class Loader(object):
                 threads.
                 The entire Python program exits when no alive non-daemon
                 threads are left.
+            url_resolve_cb (func): Function be be called to get a downloadable
+                url. The belonging `DLable` instance will be passed.
+
         """
-        self._daemon = daemon
-
-        self._max_concurrent = max_concurrent
-        self._progress_cb = progress_cb
-        self._url_resolve_cb = url_resolve_cb
-        self._update_interval = update_interval
-
-        self._queue_observer = threading.Thread(target=self._queue_observer,
-                                                name='QueueObsThread')
-        self._queue_observer.daemon = self._daemon
-
-        self._active_observer = threading.Thread(target=self._active_observer,
-                                                 name='ActiveObsThread')
-        self._active_observer.daemon = self._daemon
+        self.configure(max_concurrent, progress_cb, update_interval, daemon,
+                       url_resolve_cb)
 
     @staticmethod
     def get_loader(name=__name__):
@@ -235,6 +235,8 @@ class Loader(object):
            Does not work if a Loader was created via its constructor.
 
            Using `Loader.get()` is the prefered way.
+
+           Use `configure(...)` to configure a instance.
 
         Args:
             name (str): Name of the instance
@@ -257,17 +259,72 @@ class Loader(object):
         _lock.release()
         return rv
 
+    def configure(self, max_concurrent=3, progress_cb=None, update_interval=7,
+                  daemon=False, url_resolve_cb=None):
+        """Configure this Loader instance.
+
+        Args:
+            max_concurrent (int): Maximum amount of concurrent downloads.
+                Set to 0 for unlimited
+            progress_cb (func): Function to be called with progress updates
+            update_interval (int): interval in sec. to call `progress_cb` with
+                progress updates
+            daemon (bool): Whether or not all spawned threads are daemon
+                threads.
+                The entire Python program exits when no alive non-daemon
+                threads are left.
+            url_resolve_cb (func): Function be be called to get a downloadable
+                url. The belonging `DLable` instance will be passed.
+
+        Raises:
+            RuntimeError: If this instance was already configured and started.
+        """
+        if self._configured and self.is_alive:
+            raise RuntimeError('Cannot reconfigure already started instance.')
+
+        self._lock.acquire()
+
+        self._configured = True
+
+        self.max_concurrent = max_concurrent
+        self.update_interval = update_interval
+        self._progress_cb = progress_cb
+        self._url_resolve_cb = url_resolve_cb
+
+        self._daemon = daemon
+
+        self._queue_observer_thread = threading.Thread(
+            target=self._queue_observer, name='QueueObsThread')
+        self._queue_observer_thread.daemon = self._daemon
+
+        self._active_observer_thread = threading.Thread(
+            target=self._active_observer, name='ActiveObsThread')
+        self._active_observer_thread.daemon = self._daemon
+
+        self._lock.release()
+
     @property
     def max_concurrent(self):
-        """Returns the maximum concurrent downloads"""
+        """Returns the amount of maximum concurrent downloads"""
         return self._max_concurrent
 
     @max_concurrent.setter
     def max_concurrent(self, max_concurrent):
         """Sets the amount of maximum concurrent downloads
-        and, if needed, triggers new ones"""
+        and, if required, starts new ones"""
         self._max_concurrent = max_concurrent
         self._queue_event.set()
+
+    @property
+    def update_interval(self):
+        """Returns the update interval in seconds"""
+        return self._update_interval
+
+    @update_interval.setter
+    def update_interval(self, interval):
+        """Set the update interval in sec. defining how often the progress
+           callback should be called."""
+        self._update_interval = interval
 
     @property
     def queued(self):
@@ -290,16 +347,23 @@ class Loader(object):
     @property
     def is_alive(self):
         """True if BOTH observer threads are alive, False otherwise"""
-        return (self._queue_observer.is_alive() and
-                self._active_observer.is_alive())
+        if (self._queue_observer_thread is None
+                or self._queue_observer_thread.isAlive() is False):
+            return False
+
+        if (self._queue_observer_thread is None
+                or self._active_observer_thread.isAlive() is False):
+            return False
+
+        return True
 
     def start(self):
         """Start this loader instance"""
         logger.info('Starting new pyloader instance')
         self._lock.acquire()
 
-        self._active_observer.start()
-        self._queue_observer.start()
+        self._active_observer_thread.start()
+        self._queue_observer_thread.start()
 
         self._lock.release()
 
@@ -568,7 +632,7 @@ class Loader(object):
             if self._url_resolve_cb is not None and dlable.resolve_url:
                 # If we get a invalid url (or nothing), the requests
                 # module will fail with a proper error-message.
-                url = self._url_resolve_cb(url)
+                url = self._url_resolve_cb(dlable)
 
             # Create requests object as stream
             req = requests.get(

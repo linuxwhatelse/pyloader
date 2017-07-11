@@ -51,6 +51,55 @@ class TestLoader(unittest.TestCase):
 
         threading.Thread(target=_async).start()
 
+    def test_configure(self):
+        def _progress_cb1(): pass  # noqa
+
+        def _progress_cb2(): pass  # noqa
+
+        def _url_resolve_cb1(): pass  # noqa
+
+        def _url_resolve_cb2(): pass  # noqa
+
+        # Instantiate and configure loader
+        inst1 = pyloader.Loader.get_loader()
+        inst1.configure(max_concurrent=7, progress_cb=_progress_cb1,
+                        update_interval=3, daemon=True,
+                        url_resolve_cb=_url_resolve_cb1)
+
+        # Test classmembers
+        self.assertEqual(7, inst1.max_concurrent)
+        self.assertEqual(3, inst1.update_interval)
+        self.assertEqual(True, inst1._daemon)
+        self.assertEqual(_progress_cb1, inst1._progress_cb)
+        self.assertEqual(_url_resolve_cb1, inst1._url_resolve_cb)
+
+        # Reconfigure not yet started instance
+        inst1.configure(max_concurrent=3, progress_cb=_progress_cb2,
+                        update_interval=1, daemon=False,
+                        url_resolve_cb=_url_resolve_cb2)
+
+        self.assertEqual(3, inst1.max_concurrent)
+        self.assertEqual(1, inst1.update_interval)
+        self.assertEqual(False, inst1._daemon)
+        self.assertEqual(_progress_cb2, inst1._progress_cb)
+        self.assertEqual(_url_resolve_cb2, inst1._url_resolve_cb)
+
+        # Start and stop loader
+        inst1.start()
+        inst1.exit()
+
+        # Reconfigure started loader
+        with self.assertRaises(RuntimeError):
+            inst1.configure(max_concurrent=7, progress_cb=_progress_cb1,
+                            update_interval=3, daemon=True,
+                            url_resolve_cb=_url_resolve_cb1)
+
+        self.assertNotEqual(7, inst1.max_concurrent)
+        self.assertNotEqual(3, inst1.update_interval)
+        self.assertNotEqual(True, inst1._daemon)
+        self.assertNotEqual(_progress_cb1, inst1._progress_cb)
+        self.assertNotEqual(_url_resolve_cb1, inst1._url_resolve_cb)
+
     def test_properties(self):
         dl = pyloader.Loader(daemon=True)
 
