@@ -11,10 +11,6 @@ in one (or more, I don't care :)) of your applications.
 I wrote project-specific downloader a few times now and finally decided to create a proper module for it as  
 I couldn't find an existing one (Haven't spent that much time searching though).  
 
-## Important notice
-As of right now, this is **Beta**, so treat it as such ;)  
-I added some unittests but there're still more to go!
-
 ## ToDo
 Things to implement:
 * More unittests

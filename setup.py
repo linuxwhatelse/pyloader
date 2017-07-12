@@ -2,9 +2,9 @@ from setuptools import setup
 
 setup(
     name='lwe-pyloader',
-    version='0.2.4',
-    description='A simple, easy to use, multi-threaded downloader with '
-                'queuing support.',
+    version='1.0.0',
+    description='A simple, easy to use, multithreaded downloader '
+                'with queuing.',
     long_description='For an overview and some examples, head over to '
                      '`Github <https://github.com/linuxwhatelse/pyloader>`_',
     url='https://github.com/linuxwhatelse/pyloader',
@@ -12,7 +12,7 @@ setup(
     author_email='info@linuxwhatelse.com',
     license='GPLv3',
     classifiers=[
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Operating System :: OS Independent',
@@ -23,7 +23,7 @@ setup(
         'Programming Language :: Python :: 3.6',
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
-    keywords='pyloader download multi-threaded queue',
+    keywords='downloader threaded queuing',
     py_modules=[
         'pyloader'
     ],
