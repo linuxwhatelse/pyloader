@@ -143,6 +143,30 @@ class Status:
     CANCELED = 'canceled'
     FINISHED = 'finished'
 
+    @property
+    def ok(self):
+        """Returns a list of status considered to be successful"""
+        return [
+            self.FINISHED
+        ]
+
+    @property
+    def not_ok(self):
+        """Returns a list of status considered to be NOT successful"""
+        return [
+            self.FAILED,
+            self.EXISTED,
+            self.CANCELED
+        ]
+
+    @property
+    def active(self):
+        """Returns a list of status considered to be still active"""
+        return [
+            self.PREPARING,
+            self.IN_PROGRESS
+        ]
+
 
 class Progress:
     dlable = None
