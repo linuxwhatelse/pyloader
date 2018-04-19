@@ -9,7 +9,7 @@ setup(
                      '`Github <https://github.com/linuxwhatelse/pyloader>`_',
     url='https://github.com/linuxwhatelse/pyloader',
     author='linuxwhatelse',
-    author_email='info@linuxwhatelse.com',
+    author_email='info@linuxwhatelse.de',
     license='GPLv3',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
