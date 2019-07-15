@@ -442,7 +442,7 @@ class Loader(object):
         # Not sure if we actually want that
         raise NotImplementedError('Not implemented yet!')
 
-    def queue(self, dlable, prio=-1):
+    def queue(self, dlable, prio=None):
         """Queues a new item to be downloaded.
 
         Args:
@@ -459,8 +459,11 @@ class Loader(object):
                     self._queue.put(item)
 
             else:
-                logger.info('Queuing {} with prio {}'.format(dlable, -prio))
-                self._queue.put((-prio, dlable))
+                if prio is None:
+                    prio = self.queued + 1
+
+                logger.info('Queuing {} with prio {}'.format(dlable, prio))
+                self._queue.put((prio, dlable))
 
             self._queue_event.set()
 
