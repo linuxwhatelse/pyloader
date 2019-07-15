@@ -403,11 +403,11 @@ class Loader(object):
     def is_alive(self):
         """True if BOTH observer threads are alive, False otherwise"""
         if (self._queue_observer_thread is None
-                or self._queue_observer_thread.isAlive() is False):
+                or self._queue_observer_thread.is_alive() is False):
             return False
 
         if (self._queue_observer_thread is None
-                or self._active_observer_thread.isAlive() is False):
+                or self._active_observer_thread.is_alive() is False):
             return False
 
         return True
