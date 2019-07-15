@@ -84,21 +84,23 @@ class TestLoader(unittest.TestCase):
         self.assertEqual(_progress_cb2, inst1._progress_cb)
         self.assertEqual(_url_resolve_cb2, inst1._url_resolve_cb)
 
-        # Start and stop loader
+        # Start loader
         inst1.start()
-        inst1.exit()
 
-        # Reconfigure started loader
+        # Reconfigure active loader
         with self.assertRaises(RuntimeError):
             inst1.configure(max_concurrent=7, progress_cb=_progress_cb1,
                             update_interval=3, daemon=True,
                             url_resolve_cb=_url_resolve_cb1)
+
+        inst1.exit()
 
         self.assertNotEqual(7, inst1.max_concurrent)
         self.assertNotEqual(3, inst1.update_interval)
         self.assertNotEqual(True, inst1._daemon)
         self.assertNotEqual(_progress_cb1, inst1._progress_cb)
         self.assertNotEqual(_url_resolve_cb1, inst1._url_resolve_cb)
+
 
     def test_callback_overwrite(self):
         def _progress_cb(progress):
