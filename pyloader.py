@@ -40,7 +40,7 @@ class DLable(object):
 
     def __init__(self, url, target_dir, file_name=None, uid=None, cookies=None,
                  verify_ssl=True, allow_redirects=True, headers=None,
-                 chunk_size=1024, resolve_url=True, content_length=None):
+                 chunk_size=1024, resolve_url=False, content_length=None):
         """Init for DLable (short for Downloadable)
 
         Args:
@@ -53,22 +53,25 @@ class DLable(object):
                 If `None`, the file name will be set to the one included
                 in the HTTP response header (if available), a extracted name
                 from the URL (only if a file extension exists) or to the `uid`.
-                Defaults  to `None`.
+                Defaults to `None`.
             uid (str): Optional identifier for this downloadable item.
                 If not given, a ``uuid.uuid4()`` will be generated.
             cookies (dict): Optional cookies to be set for ``requests.get``
                 Defaults to `None`
             verify_ssl (bool): Whether or not to verify SSL certificates
-                before downloading. Defaults to `True`.
+                before downloading.
+                Defaults to `True`.
             allow_redirects (bool): Whether or not to follow redirects
-                for the specified ``url``. Defaults to `True`.
+                for the specified ``url``.
+                Defaults to `True`.
             headers (dict): A dict representing headers to be added to the
-                request. Defaults to None.
+                request.
+                Defaults to None.
             chunk_size (int): The chunk size used for this downloadable.
                 Defaults to `1024`
             resolve_url (bool): Whether or not the `url_resolve_cb` callback
                 (supplied to the `Loader` class) should be called or not.
-                Defaults to False.
+                Defaults to `False`.
             content_length (int): Expected size of the to be downloaded
                 resource in bytes.
                 This is used to calculate a progress and determin whether a
@@ -79,6 +82,8 @@ class DLable(object):
 
                 For multiple urls the sum of all needs to be provided if
                 progress and file checking is desired.
+
+                Defaults to None.
 
 
         Raises:
@@ -269,7 +274,7 @@ class Loader(object):
 
            Does not work if a Loader was created via its constructor.
 
-           Using `Loader.get()` is the prefered way.
+           Using `Loader.get_loader()` is the prefered way.
 
            Use `configure(...)` to configure a instance.
 
