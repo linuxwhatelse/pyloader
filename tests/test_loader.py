@@ -1,9 +1,10 @@
-from context import pyloader
-
+import hashlib
 import os
-import time
 import threading
+import time
 import unittest
+
+from context import pyloader
 
 _current = os.path.dirname(os.path.abspath(__file__))
 target = os.path.join(_current, 'downloads', 'write_access')
@@ -21,14 +22,13 @@ resources = {
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) '
-                  'AppleWebKit/537.36 (KHTML, like Gecko) '
-                  'Chrome/52.0.2743.82 Safari/537.36'
+    'AppleWebKit/537.36 (KHTML, like Gecko) '
+    'Chrome/52.0.2743.82 Safari/537.36'
 }
 dummy = pyloader.DLable(resources['1GB'], target, headers=headers)
 
 
 class TestLoader(unittest.TestCase):
-
     def test_instances(self):
         inst1 = pyloader.Loader.get_loader('inst1')
         inst2 = pyloader.Loader.get_loader('inst2')
@@ -52,13 +52,17 @@ class TestLoader(unittest.TestCase):
         threading.Thread(target=_async).start()
 
     def test_configure(self):
-        def _progress_cb1(): pass  # noqa
+        def _progress_cb1():
+            pass  # noqa
 
-        def _progress_cb2(): pass  # noqa
+        def _progress_cb2():
+            pass  # noqa
 
-        def _url_resolve_cb1(): pass  # noqa
+        def _url_resolve_cb1():
+            pass  # noqa
 
-        def _url_resolve_cb2(): pass  # noqa
+        def _url_resolve_cb2():
+            pass  # noqa
 
         # Instantiate and configure loader
         inst1 = pyloader.Loader.get_loader()
@@ -100,7 +104,6 @@ class TestLoader(unittest.TestCase):
         self.assertNotEqual(True, inst1._daemon)
         self.assertNotEqual(_progress_cb1, inst1._progress_cb)
         self.assertNotEqual(_url_resolve_cb1, inst1._url_resolve_cb)
-
 
     def test_callback_overwrite(self):
         def _progress_cb(progress):
@@ -182,8 +185,8 @@ class TestLoader(unittest.TestCase):
                 self.assertGreater(progress.time_spent, 0)
                 self.assertGreater(progress.time_left, 0)
 
-                self.assertTrue(progress.http_status >= 200 and
-                                progress.http_status <= 299)
+                self.assertTrue(progress.http_status >= 200
+                                and progress.http_status <= 299)
 
                 return True
 
@@ -305,6 +308,30 @@ class TestLoader(unittest.TestCase):
         dl.clear_queued()
 
         self.assertEqual(0, dl.queued)
+
+    def test_url_list(self):
+        dl = pyloader.Loader(daemon=True)
+
+        dummy = pyloader.DLable(
+            [resources['5MB'], resources['5MB'], resources['5MB']],
+            target,
+            'dummy.zip',
+            content_length=15728640,
+        )
+
+        dl.download(dummy)
+        dl.start()
+
+        while dl.is_active():
+            time.sleep(0.25)
+
+        target_file = os.path.join(target, 'dummy.zip')
+        with open(target_file, 'rb') as f:
+            self.assertEqual(
+                hashlib.md5(f.read()).hexdigest(),
+                'd7197443eb84599f02a36830a33f917f')
+
+        os.remove(target_file)
 
 
 if __name__ == '__main__':

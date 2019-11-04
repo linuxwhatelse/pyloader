@@ -1,13 +1,12 @@
-import sys
-import os
-import re
-import time
-import uuid
 import json
 import logging
-import traceback
-
+import os
+import re
+import sys
 import threading
+import time
+import traceback
+import uuid
 
 import requests
 
@@ -37,14 +36,17 @@ class DLable(object):
     headers = {}
     chunk_size = 1024
     resolve_url = False
+    content_length = None
 
     def __init__(self, url, target_dir, file_name=None, uid=None, cookies=None,
                  verify_ssl=True, allow_redirects=True, headers=None,
-                 chunk_size=1024, resolve_url=True):
+                 chunk_size=1024, resolve_url=True, content_length=None):
         """Init for DLable (short for Downloadable)
 
         Args:
-            url (str): Url to a downloadable HTTP resource.
+            url (str|list): Url to a downloadable HTTP resource.
+                If `list`, each url is considered a *chunk* and all chunks
+                are combined together in order of the list.
             target_dir (str): Writable, relative/absolute path to where the
                 file should be stored.
             file_name (str): Optional file name for the downloaded resource.
@@ -67,6 +69,17 @@ class DLable(object):
             resolve_url (bool): Whether or not the `url_resolve_cb` callback
                 (supplied to the `Loader` class) should be called or not.
                 Defaults to False.
+            content_length (int): Expected size of the to be downloaded
+                resource in bytes.
+                This is used to calculate a progress and determin whether a
+                already existing file should be overwritten or not.
+
+                For single urls the resources http header will be parsed for
+                the *content-length* attribute which may or may not exist.
+
+                For multiple urls the sum of all needs to be provided if
+                progress and file checking is desired.
+
 
         Raises:
             IOError: If target file/folder is not writable
@@ -85,6 +98,9 @@ class DLable(object):
         self.allow_redirects = allow_redirects
         self.chunk_size = chunk_size
         self.resolve_url = resolve_url
+
+        if content_length:
+            self.content_length = content_length
 
         if headers is not None:
             self.headers = headers
@@ -146,26 +162,17 @@ class Status:
     @property
     def ok(self):
         """Returns a list of status considered to be successful"""
-        return [
-            self.FINISHED
-        ]
+        return [self.FINISHED]
 
     @property
     def not_ok(self):
         """Returns a list of status considered to be NOT successful"""
-        return [
-            self.FAILED,
-            self.EXISTED,
-            self.CANCELED
-        ]
+        return [self.FAILED, self.EXISTED, self.CANCELED]
 
     @property
     def active(self):
         """Returns a list of status considered to be still active"""
-        return [
-            self.PREPARING,
-            self.IN_PROGRESS
-        ]
+        return [self.PREPARING, self.IN_PROGRESS]
 
 
 class Progress:
@@ -454,8 +461,8 @@ class Loader(object):
         with self._lock:
             if type(dlable) == list:
                 for item in dlable:
-                    logger.info('Queuing {} with prio {}'.format(item[1],
-                                                                 item[0]))
+                    logger.info('Queuing {} with prio {}'.format(
+                        item[1], item[0]))
                     self._queue.put(item)
 
             else:
@@ -668,14 +675,11 @@ class Loader(object):
                     dlable = self.url_resolve_cb(dlable)
 
                 # Create requests object as stream
-                req = requests.get(
-                    url=dlable.url,
-                    allow_redirects=dlable.allow_redirects,
-                    verify=dlable.verify_ssl,
-                    cookies=dlable.cookies,
-                    headers=dlable.headers,
-                    stream=True
-                )
+                req = _MyRequest(url=dlable.url,
+                                 allow_redirects=dlable.allow_redirects,
+                                 verify=dlable.verify_ssl,
+                                 cookies=dlable.cookies,
+                                 headers=dlable.headers)
 
             except Exception:
                 progress.status = Status.FAILED
@@ -699,9 +703,7 @@ class Loader(object):
 
             # Try to extract filename from headers if none was specified
             if not _file:
-                dispos = req.headers.get('content-disposition')
-                if dispos:
-                    _file = re.findall('filename=(.+)', dispos)
+                _file = req.filename
 
             # Try to get a filename from the url itself
             # We only use this approach if a file-extension is given to make
@@ -720,14 +722,18 @@ class Loader(object):
 
             # Try and get the files content-length to calculate
             # a progress
-            content_length = req.headers.get('content-length')
+            if dlable.content_length:
+                content_length = dlable.content_length
+            else:
+                content_length = req.content_length
+
             if content_length:
                 content_length = int(content_length)
                 progress.mb_total = content_length / 1024 / 1024
 
             # Check if the same file already exists and skip if it does
-            if (os.path.exists(target) and
-                    os.path.getsize(target) == content_length):
+            if (os.path.exists(target)
+                    and os.path.getsize(target) == content_length):
                 progress.status = Status.EXISTED
                 _propagate(progress)
 
@@ -756,8 +762,8 @@ class Loader(object):
                         # Calculate new progress
                         if progress.mb_total > 0:
                             # float cast is necessary for python2.7
-                            progress.mb_current += ((float(len(chunk)) / 1024)
-                                                    / 1024)
+                            progress.mb_current += (
+                                (float(len(chunk)) / 1024) / 1024)
                             progress.percent = (progress.mb_current * 100 /
                                                 progress.mb_total)
                             progress.mb_left = (progress.mb_total -
@@ -803,3 +809,62 @@ class Loader(object):
                 _propagate(progress)
 
         _finish(dlable, progress)
+
+
+class _MyRequest:
+    urls = None
+    has_multiple = False
+    req = None
+
+    def __init__(self, url, allow_redirects, verify, cookies, headers):
+        self.has_multiple = isinstance(url, list)
+
+        if self.has_multiple:
+            self.urls = url
+            url = self.urls.pop(0)
+
+        self.requests_args = {
+            'allow_redirects': allow_redirects,
+            'verify': verify,
+            'cookies': cookies,
+            'headers': headers,
+            'stream': True
+        }
+
+        self.req = requests.get(url=url, **self.requests_args)
+
+    @property
+    def url(self):
+        return self.req.url
+
+    @property
+    def status_code(self):
+        return self.req.status_code
+
+    @property
+    def filename(self):
+        if self.has_multiple:
+            return None
+
+        dispos = self.req.headers.get('content-disposition')
+        if dispos:
+            return re.findall('filename=(.+)', dispos)
+
+    @property
+    def content_length(self):
+        if not self.has_multiple:
+            return None
+
+        return self.req.headers.get('content-length')
+
+    def iter_content(self, chunk_size):
+        for chunk in self.req.iter_content(chunk_size):
+            yield chunk
+
+        if not self.has_multiple:
+            return
+
+        for url in self.urls:
+            for chunk in requests.get(
+                    url=url, **self.requests_args).iter_content(chunk_size):
+                yield chunk
