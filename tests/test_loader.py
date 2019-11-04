@@ -309,6 +309,8 @@ class TestLoader(unittest.TestCase):
 
         self.assertEqual(0, dl.queued)
 
+        dl.exit()
+
     def test_url_list(self):
         dl = pyloader.Loader(daemon=True)
 
@@ -332,6 +334,8 @@ class TestLoader(unittest.TestCase):
                 'd7197443eb84599f02a36830a33f917f')
 
         os.remove(target_file)
+
+        dl.exit()
 
 
 if __name__ == '__main__':
