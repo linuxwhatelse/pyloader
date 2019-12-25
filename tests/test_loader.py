@@ -337,6 +337,61 @@ class TestLoader(unittest.TestCase):
 
         dl.exit()
 
+    def test_header_list_url_str(self):
+        with self.assertRaises(TypeError):
+            pyloader.DLable(
+                resources['5MB'],
+                target,
+                'dummy.zip',
+                headers=[{}],
+            )
+
+    def test_header_list_url_list_uneven_args(self):
+        with self.assertRaises(ValueError):
+            pyloader.DLable(
+                [resources['5MB']],
+                target,
+                'dummy.zip',
+                headers=[{}, {}],
+            )
+
+    def test_url_headers_list(self):
+        dl = pyloader.Loader(daemon=True)
+
+        dummy = pyloader.DLable(
+            [resources['5MB'], resources['5MB'], resources['5MB']],
+            target,
+            'dummy.zip',
+            headers=[
+                {
+                    'Range': 'bytes=0-1048576'
+                },
+                {
+                    'Range': 'bytes=0-2097152'
+                },
+                {
+                    'Range': 'bytes=0-3145728'
+                },
+            ],
+            content_length=6291456,
+        )
+
+        dl.download(dummy)
+        dl.start()
+
+        while dl.is_active():
+            time.sleep(0.25)
+
+        target_file = os.path.join(target, 'dummy.zip')
+        with open(target_file, 'rb') as f:
+            self.assertEqual(
+                hashlib.md5(f.read()).hexdigest(),
+                '037aabe7a96bc84c16c337da159b171b')
+
+        os.remove(target_file)
+
+        dl.exit()
+
 
 if __name__ == '__main__':
     unittest.main()

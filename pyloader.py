@@ -33,7 +33,7 @@ class DLable(object):
     cookies = None
     verify_ssl = True
     allow_redirects = True
-    headers = {}
+    headers = None
     chunk_size = 1024
     resolve_url = False
     content_length = None
@@ -64,8 +64,8 @@ class DLable(object):
             allow_redirects (bool): Whether or not to follow redirects
                 for the specified ``url``.
                 Defaults to `True`.
-            headers (dict): A dict representing headers to be added to the
-                request.
+            headers (dict|list[dict]): List or dict representing headers to be
+                added to the request.
                 Defaults to None.
             chunk_size (int): The chunk size used for this downloadable.
                 Defaults to `1024`
@@ -88,6 +88,8 @@ class DLable(object):
 
         Raises:
             IOError: If target file/folder is not writable
+            TypeError: If headers is a list but url isn't
+            ValueError: if url and headers list are of different size
         """
         if uid:
             self.uid = uid
@@ -109,6 +111,13 @@ class DLable(object):
 
         if headers is not None:
             self.headers = headers
+            if isinstance(headers, list):
+                if not isinstance(self.url, list):
+                    raise TypeError('If headers is a list, url has to be too.')
+
+                if len(self.url) != len(self.headers):
+                    raise ValueError(
+                        'url and headers list have to be of the same size.')
 
         # Test if the file (if any) is writable
         if self.file_name:
@@ -698,7 +707,8 @@ class Loader(object):
 
             # If the http status code is anything other than in the range of
             # 200 - 299, we skip
-            if req.status_code != requests.codes.ok:
+            if (req.status_code != requests.codes.ok
+                    and req.status_code != requests.codes.partial):
                 progress.status = Status.FAILED
                 progress.error = str(req.status_code)
                 _propagate(progress)
@@ -818,11 +828,16 @@ class Loader(object):
 
 class _MyRequest:
     urls = None
+    headers = None
     has_multiple = False
+    has_multiple_headers = False
     req = None
 
     def __init__(self, url, allow_redirects, verify, cookies, headers):
+        self.headers = headers
+
         self.has_multiple = isinstance(url, list)
+        self.has_multiple_headers = isinstance(headers, list)
 
         if self.has_multiple:
             self.urls = url
@@ -832,11 +847,13 @@ class _MyRequest:
             'allow_redirects': allow_redirects,
             'verify': verify,
             'cookies': cookies,
-            'headers': headers,
             'stream': True
         }
 
-        self.req = requests.get(url=url, **self.requests_args)
+        if self.has_multiple_headers:
+            headers = self.headers.pop(0)
+
+        self.req = requests.get(url=url, headers=headers, **self.requests_args)
 
     @property
     def url(self):
@@ -870,6 +887,11 @@ class _MyRequest:
             return
 
         for url in self.urls:
+            headers = self.headers
+            if self.has_multiple_headers:
+                headers = self.headers.pop(0)
+
             for chunk in requests.get(
-                    url=url, **self.requests_args).iter_content(chunk_size):
+                    url=url, headers=headers,
+                    **self.requests_args).iter_content(chunk_size):
                 yield chunk
