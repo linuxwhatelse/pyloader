@@ -660,7 +660,7 @@ class Loader(object):
         logger.info('{} active and {} queued items remaining'.format(
             self.active, self.queued))
 
-        def _verify_http_status(req, progress):
+        def _is_http_status_ok(req, progress):
             # If the http status code is anything other than in the range of
             # 200 - 299, we skip
             if (req.status_code != requests.codes.ok
@@ -720,7 +720,7 @@ class Loader(object):
 
             progress.http_status = req.status_code
 
-            if _verify_http_status(req, progress):
+            if not _is_http_status_ok(req, progress):
                 return
 
             # Try to extract filename from headers if none was specified
@@ -768,7 +768,7 @@ class Loader(object):
 
             with open(target, 'wb+') as f:
                 for chunk in req.iter_content(dlable.chunk_size):
-                    if _verify_http_status(req, progress):
+                    if not _is_http_status_ok(req, progress):
                         return
 
                     # Check if we should cancel
@@ -866,6 +866,7 @@ class _MyRequest:
 
         self._req = requests.get(url=url, headers=headers,
                                  **self.requests_args)
+        print('http status:', self.status_code)
 
     @property
     def url(self):
