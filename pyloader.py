@@ -887,7 +887,7 @@ class _MyRequest:
 
     @property
     def content_length(self):
-        if not self.has_multiple:
+        if self.has_multiple:
             return None
 
         return self._req.headers.get('content-length')
