@@ -636,24 +636,26 @@ class Loader(object):
                 self.active, self.queued))
 
         def _propagate(progress):
+            cancel = False
+
+            if self._progress_cb:
+                try:
+                    cancel = self._progress_cb(progress)
+                except Exception as e:
+                    logger.error('Progress callback failed for {}'.format(
+                        progress.dlable.uid))
+                    logger.error('  Reason: {}'.format(str(e)))
+                    return True
+
             if (progress.status in [Status.FAILED, Status.EXISTED]
                     or progress.error):
                 error = progress.error if progress.error else ''
                 logger.error('Error while processing download {}'.format(
                     progress.dlable.uid))
                 logger.error('  Reason: {} {}'.format(progress.status, error))
+                return True
 
-                return False
-
-            if self._progress_cb:
-                try:
-                    return self._progress_cb(progress)
-                except Exception as e:
-                    logger.error('Progress callback failed for {}'.format(
-                        progress.dlable.uid))
-                    logger.error('  Reason: {}'.format(str(e)))
-
-                    return True
+            return cancel
 
         logger.info('{} active and {} queued items remaining'.format(
             self.active, self.queued))
