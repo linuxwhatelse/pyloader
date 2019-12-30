@@ -658,6 +658,19 @@ class Loader(object):
         logger.info('{} active and {} queued items remaining'.format(
             self.active, self.queued))
 
+        def _verify_http_status(req, progress):
+            # If the http status code is anything other than in the range of
+            # 200 - 299, we skip
+            if (req.status_code != requests.codes.ok
+                    and req.status_code != requests.codes.partial):
+                progress.status = Status.FAILED
+                progress.error = str(req.status_code)
+                _propagate(progress)
+
+                _finish(dlable, progress)
+                return False
+            return True
+
         # Prepwork only with active lock
         with self._dl_lock:
             # Variables we need later on
@@ -705,15 +718,7 @@ class Loader(object):
 
             progress.http_status = req.status_code
 
-            # If the http status code is anything other than in the range of
-            # 200 - 299, we skip
-            if (req.status_code != requests.codes.ok
-                    and req.status_code != requests.codes.partial):
-                progress.status = Status.FAILED
-                progress.error = str(req.status_code)
-                _propagate(progress)
-
-                _finish(dlable, progress)
+            if _verify_http_status(req, progress):
                 return
 
             # Try to extract filename from headers if none was specified
@@ -761,6 +766,9 @@ class Loader(object):
 
             with open(target, 'wb+') as f:
                 for chunk in req.iter_content(dlable.chunk_size):
+                    if _verify_http_status(req, progress):
+                        return
+
                     # Check if we should cancel
                     if dlable.uid in self._stop:
                         self._stop.remove(dlable.uid)
@@ -831,7 +839,8 @@ class _MyRequest:
     headers = None
     has_multiple = False
     has_multiple_headers = False
-    req = None
+
+    _req = None
 
     def __init__(self, url, allow_redirects, verify, cookies, headers):
         self.headers = headers
@@ -853,22 +862,23 @@ class _MyRequest:
         if self.has_multiple_headers:
             headers = self.headers.pop(0)
 
-        self.req = requests.get(url=url, headers=headers, **self.requests_args)
+        self._req = requests.get(url=url, headers=headers,
+                                 **self.requests_args)
 
     @property
     def url(self):
-        return self.req.url
+        return self._req.url
 
     @property
     def status_code(self):
-        return self.req.status_code
+        return self._req.status_code
 
     @property
     def filename(self):
         if self.has_multiple:
             return None
 
-        dispos = self.req.headers.get('content-disposition')
+        dispos = self._req.headers.get('content-disposition')
         if dispos:
             return re.findall('filename=(.+)', dispos)
 
@@ -877,10 +887,10 @@ class _MyRequest:
         if not self.has_multiple:
             return None
 
-        return self.req.headers.get('content-length')
+        return self._req.headers.get('content-length')
 
     def iter_content(self, chunk_size):
-        for chunk in self.req.iter_content(chunk_size):
+        for chunk in self._req.iter_content(chunk_size):
             yield chunk
 
         if not self.has_multiple:
@@ -891,7 +901,7 @@ class _MyRequest:
             if self.has_multiple_headers:
                 headers = self.headers.pop(0)
 
-            for chunk in requests.get(
-                    url=url, headers=headers,
-                    **self.requests_args).iter_content(chunk_size):
+            self._req = requests.get(url=url, headers=headers,
+                                     **self.requests_args)
+            for chunk in self._req.iter_content(chunk_size):
                 yield chunk
