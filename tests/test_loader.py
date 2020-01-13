@@ -35,6 +35,11 @@ dummy = pyloader.DLable(resources['1GB'], target, headers=headers)
 
 
 class TestLoader(unittest.TestCase):
+    def tearDown(self):
+        for f in os.listdir(target):
+            if f.endswith('.zip'):
+                os.remove(os.path.join(target, f))
+
     def test_instances(self):
         inst1 = pyloader.Loader.get_loader('inst1')
         inst2 = pyloader.Loader.get_loader('inst2')
@@ -125,8 +130,6 @@ class TestLoader(unittest.TestCase):
         dl.exit()
 
         mock.assert_called()
-
-        os.remove(dummy1.target_file)
 
     def test_callback_cancel(self):
         mock = Mock(return_value=True)
@@ -222,7 +225,6 @@ class TestLoader(unittest.TestCase):
             time.sleep(0.25)
 
         dl.exit()
-        os.remove(dummy1.target_file)
 
         progress = mock.mock_calls[-1][1][0]
         self.assertEqual(progress.status, pyloader.Status.FINISHED)
@@ -240,7 +242,6 @@ class TestLoader(unittest.TestCase):
             time.sleep(0.25)
 
         dl.exit()
-        os.remove(dummy1.target_file)
 
         progress = mock.mock_calls[-1][1][0]
         self.assertEqual(progress.status, pyloader.Status.INCOMPLETE)
@@ -406,8 +407,6 @@ class TestLoader(unittest.TestCase):
                 hashlib.md5(f.read()).hexdigest(),
                 'd7197443eb84599f02a36830a33f917f')
 
-        os.remove(target_file)
-
         dl.exit()
 
     def test_header_list_url_str(self):
@@ -460,8 +459,6 @@ class TestLoader(unittest.TestCase):
             self.assertEqual(
                 hashlib.md5(f.read()).hexdigest(),
                 '037aabe7a96bc84c16c337da159b171b')
-
-        os.remove(target_file)
 
         dl.exit()
 
