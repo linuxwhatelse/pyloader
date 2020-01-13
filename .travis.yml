@@ -10,6 +10,7 @@ python:
 
 install:
   - pip install -r requirements.txt
+  - pip install mock
 
 before_script:
   - chmod -w tests/downloads/no_write_access

@@ -1,11 +1,16 @@
 import hashlib
 import os
+import sys
 import threading
 import time
 import unittest
-from unittest.mock import Mock
 
 from context import pyloader
+
+if sys.version_info[0] < 3:
+    from mock import Mock
+else:
+    from unittest.mock import Mock
 
 _current = os.path.dirname(os.path.abspath(__file__))
 target = os.path.join(_current, 'downloads', 'write_access')
