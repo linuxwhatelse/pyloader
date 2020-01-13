@@ -172,6 +172,7 @@ class Status:
     IN_PROGRESS = 'in progress'
     CANCELED = 'canceled'
     FINISHED = 'finished'
+    INCOMPLETE = 'incomplete'
 
     @property
     def ok(self):
@@ -825,13 +826,19 @@ class Loader(object):
                     os.remove(target)
 
             else:
-                # Call the callback a last time with finalized values
-                progress.status = Status.FINISHED
-                progress.percent = 100
-                progress.mb_left = 0
-                progress.mb_current = progress.mb_total
+                if (content_length
+                        and os.path.getsize(target) < content_length):
+                    progress.status = Status.INCOMPLETE
+                    _propagate(progress)
 
-                _propagate(progress)
+                else:
+                    # Call the callback a last time with finalized values
+                    progress.status = Status.FINISHED
+                    progress.percent = 100
+                    progress.mb_left = 0
+                    progress.mb_current = progress.mb_total
+
+                    _propagate(progress)
 
         _finish(dlable, progress)
 
@@ -866,7 +873,6 @@ class _MyRequest:
 
         self._req = requests.get(url=url, headers=headers,
                                  **self.requests_args)
-        print('http status:', self.status_code)
 
     @property
     def url(self):
