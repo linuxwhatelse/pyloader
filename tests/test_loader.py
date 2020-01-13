@@ -3,6 +3,7 @@ import os
 import threading
 import time
 import unittest
+from unittest.mock import Mock
 
 from context import pyloader
 
@@ -105,6 +106,38 @@ class TestLoader(unittest.TestCase):
         self.assertNotEqual(_progress_cb1, inst1._progress_cb)
         self.assertNotEqual(_url_resolve_cb1, inst1._url_resolve_cb)
 
+    def test_callback(self):
+        mock = Mock(return_value=False)
+        dummy1 = pyloader.DLable(resources['5MB'], target, 'dummy1.zip')
+        dl = pyloader.Loader(progress_cb=mock, update_interval=1, daemon=True)
+        dl.start()
+        dl.download(dummy1)
+
+        # Wait for all downloads to end
+        while dl.is_active():
+            time.sleep(0.25)
+
+        dl.exit()
+
+        mock.assert_called()
+
+        os.remove(dummy1.target_file)
+
+    def test_callback_cancel(self):
+        mock = Mock(return_value=True)
+        dummy1 = pyloader.DLable(resources['5MB'], target, 'dummy1.zip')
+        dl = pyloader.Loader(progress_cb=mock, update_interval=1, daemon=True)
+        dl.start()
+        dl.download(dummy1)
+
+        # Wait for all downloads to end
+        while dl.is_active():
+            time.sleep(0.25)
+
+        dl.exit()
+
+        mock.assert_called_once()
+
     def test_callback_overwrite(self):
         def _progress_cb(progress):
             return False
@@ -171,6 +204,41 @@ class TestLoader(unittest.TestCase):
 
         self.assertFalse(dl.is_active())
         self.assertFalse(dl.is_alive())
+
+    def test_download_success(self):
+        mock = Mock(return_value=False)
+        dummy1 = pyloader.DLable(resources['5MB'], target, 'dummy1.zip')
+        dl = pyloader.Loader(progress_cb=mock, update_interval=1, daemon=True)
+        dl.start()
+        dl.download(dummy1)
+
+        # Wait for all downloads to end
+        while dl.is_active():
+            time.sleep(0.25)
+
+        dl.exit()
+        os.remove(dummy1.target_file)
+
+        progress = mock.mock_calls[-1][1][0]
+        self.assertEqual(progress.status, pyloader.Status.FINISHED)
+
+    def test_download_incomplete(self):
+        mock = Mock(return_value=False)
+        dummy1 = pyloader.DLable(resources['5MB'], target, 'dummy1.zip',
+                                 content_length=6291456)
+        dl = pyloader.Loader(progress_cb=mock, update_interval=1, daemon=True)
+        dl.start()
+        dl.download(dummy1)
+
+        # Wait for all downloads to end
+        while dl.is_active():
+            time.sleep(0.25)
+
+        dl.exit()
+        os.remove(dummy1.target_file)
+
+        progress = mock.mock_calls[-1][1][0]
+        self.assertEqual(progress.status, pyloader.Status.INCOMPLETE)
 
     def test_callback_cancel(self):
         def _callback(progress):
