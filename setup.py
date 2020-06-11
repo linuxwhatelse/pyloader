@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='lwe-pyloader',
-    version='1.2.3',
+    version='1.2.4',
     description='A simple, easy to use, multithreaded downloader '
     'with queuing.',
     long_description='For an overview and some examples, head over to '
