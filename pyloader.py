@@ -698,70 +698,69 @@ class Loader(object):
                 except FileExistsError:
                     logger.warning('Directory already exists: {}'.format(_dir))
 
-            try:
-                if self._url_resolve_cb is not None and dlable.resolve_url:
-                    # If we get a invalid url (or nothing), the requests
-                    # module will fail with a proper error-message.
-                    dlable = self.url_resolve_cb(dlable)
+        try:
+            if self._url_resolve_cb is not None and dlable.resolve_url:
+                # If we get a invalid url (or nothing), the requests
+                # module will fail with a proper error-message.
+                dlable = self.url_resolve_cb(dlable)
 
-                # Create requests object as stream
-                req = _MyRequest(url=dlable.url,
-                                 allow_redirects=dlable.allow_redirects,
-                                 verify=dlable.verify_ssl,
-                                 cookies=dlable.cookies,
-                                 headers=dlable.headers)
+            # Create requests object as stream
+            req = _MyRequest(url=dlable.url,
+                             allow_redirects=dlable.allow_redirects,
+                             verify=dlable.verify_ssl, cookies=dlable.cookies,
+                             headers=dlable.headers)
 
-            except Exception:
-                progress.status = Status.FAILED
-                progress.error = traceback.format_exc()
-                _propagate(progress)
+        except Exception:
+            progress.status = Status.FAILED
+            progress.error = traceback.format_exc()
+            _propagate(progress)
 
-                _finish(dlable, progress)
-                return
+            _finish(dlable, progress)
+            return
 
-            progress.http_status = req.status_code
+        progress.http_status = req.status_code
 
-            if not _is_http_status_ok(req, progress):
-                return
+        if not _is_http_status_ok(req, progress):
+            return
 
-            # Try to extract filename from headers if none was specified
-            if not _file:
-                _file = req.filename
+        # Try to extract filename from headers if none was specified
+        if not _file:
+            _file = req.filename
 
-            # Try to get a filename from the url itself
-            # We only use this approach if a file-extension is given to make
-            # sure it is actually the filename
-            if not _file:
-                _tmp_name = unquote(os.path.basename(req.url))
-                if os.path.splitext(_tmp_name)[1]:
-                    _file = _tmp_name
+        # Try to get a filename from the url itself
+        # We only use this approach if a file-extension is given to make
+        # sure it is actually the filename
+        if not _file:
+            _tmp_name = unquote(os.path.basename(req.url))
+            if os.path.splitext(_tmp_name)[1]:
+                _file = _tmp_name
 
-            # Set filename to the downloadables uid as last resort
-            if not _file:
-                _file = dlable.uid
+        # Set filename to the downloadables uid as last resort
+        if not _file:
+            _file = dlable.uid
 
-            # Full path to the file we'll be writing to
-            target = os.path.join(_dir, _file)
+        # Full path to the file we'll be writing to
+        target = os.path.join(_dir, _file)
 
-            # Try and get the files content-length to calculate
-            # a progress
-            if dlable.content_length:
-                content_length = dlable.content_length
-            else:
-                content_length = req.content_length
+        # Try and get the files content-length to calculate
+        # a progress
+        if dlable.content_length:
+            content_length = dlable.content_length
+        else:
+            content_length = req.content_length
 
-            if content_length:
-                content_length = int(content_length)
-                progress.mb_total = content_length / 1024 / 1024
+        if content_length:
+            content_length = int(content_length)
+            progress.mb_total = content_length / 1024 / 1024
 
-            # Check if the same file already exists and skip if it does
-            if (os.path.exists(target)
-                    and os.path.getsize(target) == content_length):
-                progress.status = Status.EXISTED
-                _propagate(progress)
+        # Check if the same file already exists and skip if it does
+        if (os.path.exists(target)
+                and os.path.getsize(target) == content_length):
+            progress.status = Status.EXISTED
+            _propagate(progress)
 
-                _finish(dlable, progress)
-                return
+            _finish(dlable, progress)
+            return
 
         try:
             cancel = False
