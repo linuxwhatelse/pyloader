@@ -268,6 +268,7 @@ class Loader(object):
         update_interval=7,
         daemon=False,
         url_resolve_cb=None,
+        chunk_cb=None,
     ):
         """Init for Loader.
 
@@ -289,12 +290,18 @@ class Loader(object):
                 threads.
                 The entire Python program exits when no alive non-daemon
                 threads are left.
-            url_resolve_cb (func): Function be be called to get a downloadable
+            url_resolve_cb (func): Function to be called to get a downloadable
                 url. The belonging `DLable` instance will be passed.
+            chunk_cb (func): Function to be called whenever a chunk is downloaded.
 
         """
         self.configure(
-            max_concurrent, progress_cb, update_interval, daemon, url_resolve_cb
+            max_concurrent,
+            progress_cb,
+            update_interval,
+            daemon,
+            url_resolve_cb,
+            chunk_cb,
         )
 
     @staticmethod
@@ -334,6 +341,7 @@ class Loader(object):
         update_interval=7,
         daemon=False,
         url_resolve_cb=None,
+        chunk_cb=None,
     ):
         """Configure this Loader instance.
 
@@ -349,6 +357,7 @@ class Loader(object):
                 threads are left.
             url_resolve_cb (func): Function be be called to get a downloadable
                 url. The belonging `DLable` instance will be passed.
+            chunk_cb (func): Function to be called whenever a chunk is downloaded.
 
         Raises:
             RuntimeError: If this instance was already configured and started.
@@ -359,10 +368,11 @@ class Loader(object):
         with self._lock:
             self._configured = True
 
-            self.max_concurrent = max_concurrent
-            self.update_interval = update_interval
-            self.progress_cb = progress_cb
-            self.url_resolve_cb = url_resolve_cb
+            self._max_concurrent = max_concurrent
+            self._update_interval = update_interval
+            self._progress_cb = progress_cb
+            self._url_resolve_cb = url_resolve_cb
+            self._chunk_cb = chunk_cb
 
             self._daemon = daemon
 
@@ -808,6 +818,7 @@ class Loader(object):
             progress.status = Status.IN_PROGRESS
 
             with open(target, "wb+") as f:
+                i = 0
                 for chunk in req.iter_content(dlable.chunk_size):
                     if not _is_http_status_ok(req, progress):
                         return
@@ -846,8 +857,13 @@ class Loader(object):
 
                             cancel = _propagate(progress)
 
+                    if self._chunk_cb:
+                        chunk = self._chunk_cb(chunk, dlable, i)
+
                     # Finally write our chunk. Yay! :)
                     f.write(chunk)
+
+                    i += 1
 
         except Exception:
             # If any form of error occurs, we catch it and report it
